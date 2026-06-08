@@ -8,10 +8,10 @@
   </head>
   <body>
     <nav>
-      <a class="brand" href="/">Demodefelek</a>
+      <a class="brand" href="#game" data-view="game">Demodefelek</a>
       <div>
-        <a href="/">Oyun</a>
-        <a href="/host">Kurulum</a>
+        <a href="#game" data-view="game">Oyun</a>
+        <a href="#setup" data-view="setup">Kurulum</a>
       </div>
     </nav>
     <main id="app"></main>
@@ -21,6 +21,7 @@
       const customPuzzleSettingsStorageKey = 'demodefelek.customPuzzleSettings.v1'
       const defaultContestants = ['BERKE', 'RONVISLY', 'YALÇIN', 'MATAR']
       let contestants = loadContestantNames()
+      let currentView = location.hash === '#setup' ? 'setup' : 'game'
       const proverbAnswers = [
         'Ayağını yorganına göre uzat', 'Damlaya damlaya göl olur', 'Sakla samanı gelir zamanı', 'Ak akçe kara gün içindir', 'Bir elin nesi var iki elin sesi var',
         'Taşıma su ile değirmen dönmez', 'Ne ekersen onu biçersin', 'Dost kara günde belli olur', 'Gülü seven dikenine katlanır', 'Komşu komşunun külüne muhtaçtır',
@@ -1496,8 +1497,7 @@
         awaitingLetter = false
         clearTimer()
         timerRemaining = 30
-        history.pushState(null, '', '/')
-        renderGame()
+        showGameView()
       }
 
       function spin() {
@@ -1986,16 +1986,50 @@
         })
       }
 
+      function goToConfig() {
+        if (isSpinning()) return
+        showSetupView()
+      }
+
+      function updateHashForView(view) {
+        const nextHash = view === 'setup' ? '#setup' : '#game'
+        if (location.hash !== nextHash) {
+          location.hash = nextHash
+        }
+      }
+
+      function showGameView() {
+        currentView = 'game'
+        updateHashForView(currentView)
+        renderGame()
+      }
+
+      function showSetupView() {
+        currentView = 'setup'
+        updateHashForView(currentView)
+        renderConfig()
+      }
+
+      function handleNavClick(event) {
+        event.preventDefault()
+        const view = event.currentTarget.dataset.view
+        if (view === 'setup') {
+          showSetupView()
+          return
+        }
+        showGameView()
+      }
+
       function route() {
-        if (location.pathname.startsWith('/host')) return renderConfig()
+        currentView = location.hash === '#setup' ? 'setup' : 'game'
+        if (currentView === 'setup') return renderConfig()
         return renderGame()
       }
 
-      function goToConfig() {
-        if (isSpinning()) return
-        location.href = '/host'
-      }
-
+      document.querySelectorAll('[data-view]').forEach((link) => {
+        link.addEventListener('click', handleNavClick)
+      })
+      window.addEventListener('hashchange', route)
       route()
     </script>
   </body>
