@@ -19,6 +19,8 @@
       const contestantStorageKey = 'carkifelek-contestant-names-v2'
       const customPuzzleStorageKey = 'demodefelek.customPuzzles.v1'
       const customPuzzleSettingsStorageKey = 'demodefelek.customPuzzleSettings.v1'
+      const MIN_PLAYERS = 1
+      const MAX_PLAYERS = 4
       const defaultContestants = ['BERKE', 'RONVISLY', 'YALÇIN', 'MATAR']
       let contestants = loadContestantNames()
       let currentView = location.hash === '#setup' ? 'setup' : 'game'
@@ -49,8 +51,9 @@
       let customPuzzleNotice = ''
       let customPuzzleImportSummary = ''
       let customPuzzleImportErrors = []
-      let settings = { topic: 'mixed', playerCount: 4 }
-      let scores = contestants.map(() => ({ round: 0, total: 0 }))
+      let setupNotice = ''
+      let settings = { topic: 'mixed', playerCount: normalizePlayerCount(4) }
+      let scores = createScoreState()
       let puzzleIndex = 0
       let guessed = ['A', 'İ']
       let wrongLetters = []
@@ -252,7 +255,8 @@
       }
 
       function players() {
-        return contestants.slice(0, settings.playerCount).map((name, index) => `
+        ensurePlayerState()
+        return contestants.slice(0, activePlayerCount()).map((name, index) => `
           <article class="player ${index === activePlayer ? 'active-player' : ''}" style="border-color: ${['#26D07C', '#F4C430', '#F05A28', '#60A5FA'][index]}">
             <div class="player-meta">
               ${playerNameControl(index, name)}
@@ -295,6 +299,40 @@
       function normalizeSavedName(name) {
         if (typeof name !== 'string') return ''
         return name.trim().slice(0, 24)
+      }
+
+      function normalizePlayerCount(value) {
+        const count = Number.parseInt(value, 10)
+        if (!Number.isFinite(count)) return MAX_PLAYERS
+        return Math.min(MAX_PLAYERS, Math.max(MIN_PLAYERS, count))
+      }
+
+      function activePlayerCount() {
+        settings.playerCount = normalizePlayerCount(settings.playerCount)
+        return settings.playerCount
+      }
+
+      function createScoreState() {
+        return defaultContestants.map(() => ({ round: 0, total: 0 }))
+      }
+
+      function ensurePlayerState() {
+        const playerCount = activePlayerCount()
+        while (scores.length < MAX_PLAYERS) {
+          scores.push({ round: 0, total: 0 })
+        }
+        if (activePlayer >= playerCount || activePlayer < 0) activePlayer = 0
+        if (startingPlayer >= playerCount || startingPlayer < 0) startingPlayer = 0
+      }
+
+      function getNextPlayerIndex(currentIndex, playerCount = activePlayerCount()) {
+        return (currentIndex + 1) % playerCount
+      }
+
+      function resetActiveRoundScores() {
+        scores.slice(0, activePlayerCount()).forEach((score) => {
+          score.round = 0
+        })
       }
 
       function persistContestantNames() {
@@ -1441,6 +1479,7 @@
       }
 
       function renderGame() {
+        ensurePlayerState()
         document.body.className = ''
         const gameActionLocked = isGameActionLocked()
         const newPuzzleLocked = isSpinning()
@@ -1462,7 +1501,7 @@
           <section class="host-shell">
             <header class="panel room-head">
               <div>
-                <p class="eyebrow">${settings.topic === 'football' ? 'Futbol' : settings.topic === 'culture' ? 'Genel Kültür' : 'Karma'} / ${settings.playerCount} Yarışmacı</p>
+                <p class="eyebrow">${settings.topic === 'football' ? 'Futbol' : settings.topic === 'culture' ? 'Genel Kültür' : 'Karma'} / ${activePlayerCount()} Yarışmacı</p>
                 <h1>Demodefelek</h1>
               </div>
               <div class="header-status">
@@ -1501,7 +1540,7 @@
                 ${roundFlowPanel()}
               </section>
             </section>
-            <section class="panel score-dock" style="--player-count:${settings.playerCount}">
+            <section class="panel score-dock" style="--player-count:${activePlayerCount()}">
               <h2>Yarışmacılar</h2>
               <div class="contestants">${players()}</div>
             </section>
@@ -1511,6 +1550,7 @@
 
       function renderConfig() {
         document.body.className = ''
+        ensurePlayerState()
         const customList = customPuzzles.length
           ? customPuzzles.map(renderCustomPuzzleEditor).join('')
           : '<p>Henüz özel soru yok.</p>'
@@ -1519,6 +1559,7 @@
             <section class="panel">
               <p class="eyebrow">Host Kurulum</p>
               <h1>Oyunu Ayarla</h1>
+              ${setupNotice ? `<p>${escapeHtml(setupNotice)}</p>` : ''}
               <div class="config-grid">
                 <label>
                   Konu
@@ -1536,6 +1577,7 @@
                     <option value="3" ${settings.playerCount === 3 ? 'selected' : ''}>3</option>
                     <option value="4" ${settings.playerCount === 4 ? 'selected' : ''}>4</option>
                   </select>
+                  <span>Yarışmacı sayısı 1 ile 4 arasında olabilir.</span>
                 </label>
               </div>
               <button class="primary" onclick="applyConfig()">Oyunu Aç</button>
@@ -1619,11 +1661,14 @@
       function applyConfig() {
         if (isSpinning()) return
         stopWheelSpin()
+        const rawPlayerCount = document.querySelector('#player-count-select').value
+        const normalizedPlayerCount = normalizePlayerCount(rawPlayerCount)
+        setupNotice = Number.parseInt(rawPlayerCount, 10) !== normalizedPlayerCount ? 'En fazla 4 yarışmacı desteklenir.' : ''
         settings = {
           topic: document.querySelector('#topic-select').value,
-          playerCount: Number(document.querySelector('#player-count-select').value),
+          playerCount: normalizedPlayerCount,
         }
-        scores = contestants.map(() => ({ round: 0, total: 0 }))
+        scores = createScoreState()
         puzzleIndex = 0
         guessed = []
         wrongLetters = []
@@ -1781,7 +1826,7 @@
 
       function advanceTurnAfterSpin() {
         clearTimer()
-        activePlayer = (activePlayer + 1) % settings.playerCount
+        activePlayer = getNextPlayerIndex(activePlayer)
         awaitingLetter = false
         timerRemaining = 30
       }
@@ -1879,9 +1924,7 @@
         const bankedPoints = scores[activePlayer].round
         const totalGain = bankedPoints + 500
         scores[activePlayer].total += totalGain
-        scores.forEach((score) => {
-          score.round = 0
-        })
+        resetActiveRoundScores()
         awaitingLetter = false
         currentSegment = null
         wheel = 'Hazır'
@@ -1906,7 +1949,7 @@
         if (isGameActionLocked()) return
         stopWheelSpin()
         clearTimer()
-        activePlayer = (activePlayer + 1) % settings.playerCount
+        activePlayer = getNextPlayerIndex(activePlayer)
         awaitingLetter = false
         wheel = 'Hazır'
         currentSegment = null
@@ -1965,9 +2008,7 @@
           const bankedPoints = scores[activePlayer].round
           const totalGain = bankedPoints + 500
           scores[activePlayer].total += scores[activePlayer].round + 500
-          scores.forEach((score) => {
-            score.round = 0
-          })
+          resetActiveRoundScores()
           awaitingLetter = false
           currentSegment = null
           wheel = 'Hazır'
@@ -2040,9 +2081,7 @@
         })
         startingPlayer = 0
         activePlayer = 0
-        scores.forEach((score) => {
-          score.round = 0
-        })
+        resetActiveRoundScores()
         awaitingLetter = false
         clearTimer()
         timerRemaining = 30
@@ -2100,8 +2139,9 @@
       }
 
       function stealFromLeader() {
+        const playerCount = activePlayerCount()
         const rivals = scores
-          .slice(0, settings.playerCount)
+          .slice(0, playerCount)
           .map((score, index) => ({ score, index }))
           .filter((player) => player.index !== activePlayer)
           .sort((a, b) => b.score.round - a.score.round)
@@ -2113,7 +2153,9 @@
             id: `steal-empty-${displayedSpinResult?.spinId || Date.now()}`,
             type: 'steal_points',
             playerName: contestants[activePlayer],
-            message: `Rakiplerde alınabilecek puan bulunamadı. ${contestants[activePlayer]} tekrar çark çevirecek.`,
+            message: playerCount === 1
+              ? `Rakip olmadığı için alınabilecek tur puanı yok. ${contestants[activePlayer]} tekrar çark çevirecek.`
+              : `Rakiplerde alınabilecek puan bulunamadı. ${contestants[activePlayer]} tekrar çark çevirecek.`,
           })
           return
         }

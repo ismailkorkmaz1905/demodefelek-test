@@ -138,6 +138,10 @@ Kurulum ekranında hazır havuz ve özel havuz birlikte veya ayrı oynatılabili
 ## Notlar
 
 - Oyun host kontrollüdür.
+- Yarışmacı sayısı 1-4 arasındadır.
+- En fazla 4 kişi desteklenir.
+- 1 kişi modunda sıra aynı oyuncuda kalır.
+- 2-4 kişi modunda sıra aktif oyuncular arasında döner.
 - Yarışmacılar uygulamaya bağlanmaz.
 - Backend gerekmez.
 - Supabase gerekmez.
