@@ -121,9 +121,12 @@ Excel dosyaları doğrudan parse edilmez. Excel dosyasını CSV olarak kaydedip 
 ```text
 demodefelek.customPuzzles.v1
 demodefelek.customPuzzleSettings.v1
+demodefelek.puzzleList.v1
 ```
 
 Custom sorularda `verified: true`, sorunun host tarafından oynanabilir olarak onaylandığı anlamına gelir. Dış kaynak doğrulaması anlamına gelmez.
+
+Kurulum ekranındaki Bulmaca Cevapları bölümünde hazır cevaplar ve host tarafından eklenen cevaplar düzenlenebilir. Kaydetme localStorage içinde `version`, `updatedAt` ve `puzzles` alanlarıyla saklanır. Varsayılan Cevaplara Dön butonu bu listeyi temizleyip hazır puzzle listesine geri döner.
 
 Kurulum ekranındaki özel soru listesinde cevap, kategori, ipucu, kaynak, zorluk ve aktiflik bilgisi inline düzenlenebilir. Kaydet butonu validation ve duplicate kontrolünden sonra localStorage kaydını günceller.
 

@@ -19,6 +19,7 @@
       const contestantStorageKey = 'carkifelek-contestant-names-v2'
       const customPuzzleStorageKey = 'demodefelek.customPuzzles.v1'
       const customPuzzleSettingsStorageKey = 'demodefelek.customPuzzleSettings.v1'
+      const puzzleListStorageKey = 'demodefelek.puzzleList.v1'
       const MIN_PLAYERS = 1
       const MAX_PLAYERS = 4
       const defaultContestants = ['BERKE', 'RONVISLY', 'YALÇIN', 'MATAR']
@@ -46,6 +47,8 @@
         ...idiomAnswers.map((answer) => ({ id: `deyim-${puzzleSlug(answer)}`, topic: 'culture', category: 'Deyim', speaker: 'Türk Deyimi', contentType: 'idiom', clue: 'Saf Türk deyimi', context: 'Yaygın Türk deyimi.', answer, verified: true, reviewed: true, enabled: true, difficulty: 'medium', popularityScore: 80 })),
         ...approvedCandidateAnswers.map((answer) => ({ id: `candidate-${puzzleSlug(answer)}`, topic: 'mixed', category: 'Modern Söz', speaker: 'Anonim', contentType: 'social_media_meme', clue: 'Onaylı modern söz adayı', context: 'Kaynak doğrulaması bekleyen aday.', answer, sourceTitle: '', sourceUrl: '', sourceTime: '', verified: false, reviewed: true, enabled: false, difficulty: 'medium', popularityScore: 0 })),
       ]
+      let puzzleEditorNotice = ''
+      let managedPuzzles = loadManagedPuzzles()
       let customPuzzles = loadCustomPuzzles()
       let customPuzzleSettings = loadCustomPuzzleSettings()
       let customPuzzleNotice = ''
@@ -145,7 +148,7 @@
       function uniqueSelectablePuzzles() {
         const byAnswer = new Map()
         if (customPuzzleSettings.includeBuiltInPuzzles) {
-          puzzles.filter(isPuzzleSelectable).forEach((puzzle) => {
+          managedPuzzles.filter(isPuzzleSelectable).forEach((puzzle) => {
             const key = normalizeTurkishText(puzzle.answer)
             if (!byAnswer.has(key)) byAnswer.set(key, puzzle)
           })
@@ -161,8 +164,7 @@
 
       function isPuzzleSelectable(puzzle) {
         if (!puzzle.enabled || !puzzle.reviewed || !puzzle.verified) return false
-        if (['proverb', 'anonymous_saying', 'idiom'].includes(puzzle.contentType)) return true
-        return Boolean(puzzle.sourceUrl)
+        return Boolean(normalizeTurkishText(puzzle.answer))
       }
 
       function selectNextPuzzleIndex() {
@@ -342,6 +344,149 @@
 
       function persistContestantNames() {
         localStorage.setItem(contestantStorageKey, JSON.stringify(contestants))
+      }
+
+      function cloneDefaultPuzzles() {
+        return puzzles.map((puzzle) => ({ ...puzzle }))
+      }
+
+      function sanitizeManagedPuzzle(puzzle, index, allowEmptyAnswer = false) {
+        if (!puzzle || typeof puzzle !== 'object') return null
+        const answer = String(puzzle.answer || '').trim()
+        if (!answer && !allowEmptyAnswer) return null
+        return {
+          ...puzzle,
+          id: String(puzzle.id || `managed-custom-${Date.now()}-${index}`),
+          category: String(puzzle.category || 'Özel').trim() || 'Özel',
+          answer,
+          speaker: String(puzzle.speaker || 'Özel').trim() || 'Özel',
+          verified: puzzle.verified !== false,
+          reviewed: puzzle.reviewed !== false,
+          enabled: puzzle.enabled !== false,
+          difficulty: String(puzzle.difficulty || 'medium').trim() || 'medium',
+          tags: Array.isArray(puzzle.tags) ? puzzle.tags : ['custom'],
+          topic: puzzle.topic || 'mixed',
+          contentType: puzzle.contentType || 'custom',
+          clue: String(puzzle.clue || puzzle.sourceTitle || 'Özel').trim() || 'Özel',
+          isManagedCustom: puzzle.isManagedCustom === true || String(puzzle.id || '').startsWith('managed-custom-'),
+        }
+      }
+
+      function loadManagedPuzzles() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(puzzleListStorageKey) || 'null')
+          if (!saved || !Array.isArray(saved.puzzles)) return cloneDefaultPuzzles()
+          const loaded = saved.puzzles.map(sanitizeManagedPuzzle).filter(Boolean)
+          return loaded.length ? loaded : cloneDefaultPuzzles()
+        } catch {
+          return cloneDefaultPuzzles()
+        }
+      }
+
+      function persistManagedPuzzles() {
+        localStorage.setItem(puzzleListStorageKey, JSON.stringify({
+          version: 1,
+          updatedAt: Date.now(),
+          puzzles: managedPuzzles,
+        }))
+      }
+
+      function normalizePuzzleAnswer(value) {
+        return normalizeTurkishText(value)
+      }
+
+      function readPuzzleEditorRows() {
+        return [...document.querySelectorAll('[data-puzzle-row]')].map((row) => {
+          const id = row.getAttribute('data-puzzle-row')
+          const current = managedPuzzles.find((puzzle) => puzzle.id === id) || {}
+          return sanitizeManagedPuzzle({
+            ...current,
+            id,
+            enabled: row.querySelector('[data-puzzle-enabled]')?.checked === true,
+            category: row.querySelector('[data-puzzle-category]')?.value || '',
+            answer: row.querySelector('[data-puzzle-answer]')?.value || '',
+            speaker: row.querySelector('[data-puzzle-speaker]')?.value || '',
+            difficulty: row.querySelector('[data-puzzle-difficulty]')?.value || 'medium',
+            verified: row.querySelector('[data-puzzle-verified]')?.checked === true,
+            reviewed: row.querySelector('[data-puzzle-reviewed]')?.checked === true,
+          }, undefined, true)
+        }).filter(Boolean)
+      }
+
+      function validateManagedPuzzles(nextPuzzles) {
+        const seen = new Map()
+        let enabledCount = 0
+        for (const puzzle of nextPuzzles) {
+          const normalized = normalizePuzzleAnswer(puzzle.answer)
+          if (!normalized) return `Boş cevap kaydedilemez.`
+          if (normalized.length > 70) return `Cevap 70 Türkçe harften uzun olamaz: ${puzzle.answer}`
+          if (seen.has(normalized)) return `Aynı cevap birden fazla kez var: ${puzzle.answer}`
+          seen.set(normalized, puzzle.answer)
+          if (puzzle.enabled && puzzle.reviewed && puzzle.verified) enabledCount += 1
+        }
+        if (enabledCount < 1) return 'En az 1 aktif ve onaylı puzzle kalmalı.'
+        return ''
+      }
+
+      function saveManagedPuzzleList() {
+        const nextPuzzles = readPuzzleEditorRows()
+        const error = validateManagedPuzzles(nextPuzzles)
+        if (error) {
+          puzzleEditorNotice = error
+          renderConfig()
+          return
+        }
+        managedPuzzles = nextPuzzles.map((puzzle) => puzzle.enabled ? { ...puzzle, reviewed: true, verified: true } : puzzle)
+        persistManagedPuzzles()
+        puzzleIndex = Math.min(puzzleIndex, Math.max(0, currentPuzzlePool().length - 1))
+        puzzleEditorNotice = 'Cevaplar kaydedildi.'
+        renderConfig()
+      }
+
+      function addManagedPuzzleRow() {
+        managedPuzzles = [
+          ...managedPuzzles,
+          {
+            id: `managed-custom-${Date.now()}`,
+            topic: 'mixed',
+            category: 'Özel',
+            answer: '',
+            speaker: 'Özel',
+            verified: true,
+            reviewed: true,
+            enabled: true,
+            difficulty: 'medium',
+            tags: ['custom'],
+            contentType: 'custom',
+            clue: 'Özel',
+            isManagedCustom: true,
+          },
+        ]
+        puzzleEditorNotice = 'Yeni cevap satırı eklendi. Düzenleyip Cevapları Kaydet butonuna basın.'
+        renderConfig()
+      }
+
+      function removeManagedPuzzle(id) {
+        if (!confirm('Bu cevabı listeden kaldırmak istiyor musun?')) return
+        const target = managedPuzzles.find((puzzle) => puzzle.id === id)
+        if (target?.isManagedCustom) {
+          managedPuzzles = managedPuzzles.filter((puzzle) => puzzle.id !== id)
+        } else {
+          managedPuzzles = managedPuzzles.map((puzzle) => puzzle.id === id ? { ...puzzle, enabled: false } : puzzle)
+        }
+        persistManagedPuzzles()
+        puzzleEditorNotice = 'Cevap aktif havuzdan çıkarıldı.'
+        renderConfig()
+      }
+
+      function resetManagedPuzzles() {
+        if (!confirm('Tüm özel puzzle değişiklikleri silinecek. Varsayılan listeye dönmek istiyor musun?')) return
+        localStorage.removeItem(puzzleListStorageKey)
+        managedPuzzles = cloneDefaultPuzzles()
+        puzzleIndex = 0
+        puzzleHistory = []
+        puzzleEditorNotice = 'Varsayılan cevap listesine dönüldü.'
+        renderConfig()
       }
 
       function loadCustomPuzzleSettings() {
@@ -1483,6 +1628,67 @@
         `
       }
 
+      function renderManagedPuzzleEditor() {
+        return `
+          <section class="panel">
+            <h2>Bulmaca Cevapları</h2>
+            ${puzzleEditorNotice ? `<p>${escapeHtml(puzzleEditorNotice)}</p>` : ''}
+            <div class="round-log-list" style="max-height: 520px; overflow-y: auto;">
+              ${managedPuzzles.map((puzzle, index) => `
+                <article class="round-log-item" data-puzzle-row="${escapeHtml(puzzle.id)}">
+                  <div class="config-grid">
+                    <label>
+                      Sıra
+                      <input value="${index + 1}" disabled />
+                    </label>
+                    <label>
+                      Aktif
+                      <input data-puzzle-enabled type="checkbox" ${puzzle.enabled ? 'checked' : ''} />
+                    </label>
+                    <label>
+                      Kategori
+                      <input data-puzzle-category value="${escapeHtml(puzzle.category || '')}" maxlength="40" />
+                    </label>
+                    <label>
+                      Cevap
+                      <textarea data-puzzle-answer rows="1" maxlength="180">${escapeHtml(puzzle.answer || '')}</textarea>
+                    </label>
+                    <label>
+                      Zorluk
+                      <select data-puzzle-difficulty>
+                        <option value="easy" ${puzzle.difficulty === 'easy' ? 'selected' : ''}>easy</option>
+                        <option value="medium" ${puzzle.difficulty === 'medium' ? 'selected' : ''}>medium</option>
+                        <option value="hard" ${puzzle.difficulty === 'hard' ? 'selected' : ''}>hard</option>
+                      </select>
+                    </label>
+                    <label>
+                      Kaynak
+                      <input data-puzzle-speaker value="${escapeHtml(puzzle.speaker || '')}" maxlength="60" />
+                    </label>
+                    <label>
+                      Verified
+                      <input data-puzzle-verified type="checkbox" ${puzzle.verified ? 'checked' : ''} />
+                    </label>
+                    <label>
+                      Reviewed
+                      <input data-puzzle-reviewed type="checkbox" ${puzzle.reviewed ? 'checked' : ''} />
+                    </label>
+                  </div>
+                  <div class="name-actions">
+                    <button onclick="removeManagedPuzzle('${escapeHtml(puzzle.id)}')">Sil</button>
+                  </div>
+                </article>
+              `).join('')}
+            </div>
+            <div class="name-actions">
+              <button onclick="addManagedPuzzleRow()">Yeni Cevap Ekle</button>
+              <button class="primary" onclick="saveManagedPuzzleList()">Cevapları Kaydet</button>
+              <button onclick="resetManagedPuzzles()">Varsayılan Cevaplara Dön</button>
+            </div>
+          </section>
+        `
+      }
+
       function renderGame() {
         ensurePlayerState()
         document.body.className = ''
@@ -1587,6 +1793,7 @@
               </div>
               <button class="primary" onclick="applyConfig()">Oyunu Aç</button>
             </section>
+            ${renderManagedPuzzleEditor()}
             <section class="panel">
               <p class="eyebrow">Kendi Sorularını Yükle</p>
               <h2>Manuel Soru Ekle</h2>
