@@ -570,14 +570,14 @@
       }
 
       function deleteCustomPuzzle(id) {
-        if (!confirm('Bu özel soru silinsin mi?')) return
+        if (!confirm('Bu özel soruyu silmek istediğine emin misin?')) return
         customPuzzles = customPuzzles.filter((puzzle) => puzzle.id !== id)
         persistCustomPuzzles()
         renderConfig()
       }
 
       function clearCustomPuzzles() {
-        if (!confirm('Tüm özel sorular silinsin mi?')) return
+        if (!confirm('Tüm özel sorular silinecek. Bu işlem hazır soru havuzunu etkilemez. Devam etmek istiyor musun?')) return
         customPuzzles = []
         persistCustomPuzzles()
         customPuzzleNotice = 'Özel sorular temizlendi.'
@@ -671,7 +671,7 @@
           return
         }
 
-        const confirmed = confirm(`Bu dosyada ${result.imported.length} geÃ§erli soru bulundu. Devam ederseniz mevcut ${customPuzzles.length} Ã¶zel soru silinecek ve yerine bu ${result.imported.length} soru yÃ¼klenecek. Devam etmek istiyor musunuz?`)
+        const confirmed = confirm(`Bu iÅŸlem mevcut Ã¶zel soru havuzunu tamamen deÄŸiÅŸtirecek. Elle eklediÄŸiniz sorular dahil tÃ¼m mevcut Ã¶zel sorular silinecek ve yalnÄ±zca yÃ¼klediÄŸiniz dosyadaki sorular kullanÄ±lacak. Bu dosyada ${result.imported.length} geÃ§erli soru bulundu. Devam etmek istiyor musunuz?`)
         if (!confirmed) {
           customPuzzleImportSummary = 'Import iptal edildi. Mevcut Ã¶zel soru havuzu korunuyor.'
           renderConfig()
@@ -1646,7 +1646,7 @@
               <h2>Özel Soru Havuzu</h2>
               <div class="round-log-list">${customList}</div>
               <div class="name-actions">
-                <button onclick="clearCustomPuzzles()" ${customPuzzles.length ? '' : 'disabled'}>Özel Soruları Temizle</button>
+                <button onclick="clearCustomPuzzles()" ${customPuzzles.length ? '' : 'disabled'}>Tüm Özel Soruları Temizle</button>
                 <button onclick="exportCustomPuzzles()" ${customPuzzles.length ? '' : 'disabled'}>Özel Soruları Dışa Aktar</button>
               </div>
             </section>
