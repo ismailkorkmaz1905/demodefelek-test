@@ -357,9 +357,9 @@
         }
       }
 
-      function customPuzzleExists(answer, extraPuzzles = []) {
+      function customPuzzleExists(answer, extraPuzzles = [], ignoredId = '') {
         const key = normalizeTurkishText(answer)
-        return [...customPuzzles, ...extraPuzzles].some((puzzle) => normalizeTurkishText(puzzle.answer) === key)
+        return [...customPuzzles, ...extraPuzzles].some((puzzle) => puzzle.id !== ignoredId && normalizeTurkishText(puzzle.answer) === key)
       }
 
       function createCustomPuzzle({ answer, category, sourceTitle, speaker, difficulty, enabled }) {
@@ -447,7 +447,7 @@
         return headers.findIndex((header) => names.includes(normalizeTurkish(header).toLocaleLowerCase('tr-TR')))
       }
 
-      function importCustomCsvText(text) {
+      function importCustomCsvTextAppendLegacy(text) {
         const rows = parseCsv(text)
         customPuzzleImportErrors = []
         if (rows.length < 2) {
@@ -569,6 +569,122 @@
         link.download = 'demodefelek-custom-puzzles.json'
         link.click()
         URL.revokeObjectURL(link.href)
+      }
+
+      function parseCustomCsvImport(text) {
+        const rows = parseCsv(text)
+        const errors = []
+        if (rows.length < 2) {
+          return { imported: [], readCount: 0, duplicateCount: 0, invalidCount: 0, longCount: 0, errors: ['CSV iÃ§inde eklenecek satÄ±r bulunamadÄ±.'], failed: true }
+        }
+
+        const headers = rows[0].map((header) => header.trim())
+        const answerIndex = headerIndex(headers, ['answer', 'cevap'])
+        const categoryIndex = headerIndex(headers, ['category', 'kategori'])
+        const titleIndex = headerIndex(headers, ['title', 'baÅŸlÄ±k', 'baslik', 'ipucu'])
+        const speakerIndex = headerIndex(headers, ['speaker', 'konuÅŸmacÄ±', 'konusmaci', 'kaynak'])
+        const difficultyIndex = headerIndex(headers, ['difficulty', 'zorluk'])
+
+        if (answerIndex === -1) {
+          return { imported: [], readCount: rows.length - 1, duplicateCount: 0, invalidCount: 0, longCount: 0, errors: ['CSV iÃ§inde answer veya cevap kolonu bulunamadÄ±.'], failed: true }
+        }
+
+        const imported = []
+        let duplicateCount = 0
+        let invalidCount = 0
+        let longCount = 0
+
+        rows.slice(1).forEach((row, rowIndex) => {
+          const answer = String(row[answerIndex] || '').trim()
+          const normalizedAnswer = normalizeTurkishText(answer)
+          if (normalizedAnswer.length < 2) {
+            invalidCount += 1
+            errors.push(`${rowIndex + 2}. satÄ±r geÃ§ersiz.`)
+            return
+          }
+          if (imported.some((puzzle) => normalizeTurkishText(puzzle.answer) === normalizedAnswer)) {
+            duplicateCount += 1
+            return
+          }
+          if (normalizedAnswer.length > 70) {
+            longCount += 1
+            errors.push(`${rowIndex + 2}. satÄ±r 70 harften uzun.`)
+            return
+          }
+          imported.push(createCustomPuzzle({
+            answer,
+            category: row[categoryIndex] || 'Ã–zel Soru',
+            sourceTitle: row[titleIndex] || '',
+            speaker: row[speakerIndex] || 'Host',
+            difficulty: row[difficultyIndex] || 'medium',
+            enabled: true,
+          }))
+        })
+
+        return { imported, readCount: rows.length - 1, duplicateCount, invalidCount, longCount, errors, failed: false }
+      }
+
+      function importCustomCsvText(text) {
+        const result = parseCustomCsvImport(text)
+        customPuzzleImportErrors = result.errors
+        if (result.failed) {
+          customPuzzleImportSummary = result.errors[0]
+          renderConfig()
+          return
+        }
+
+        const confirmed = confirm(`Bu dosyada ${result.imported.length} geÃ§erli soru bulundu. Devam ederseniz mevcut ${customPuzzles.length} Ã¶zel soru silinecek ve yerine bu ${result.imported.length} soru yÃ¼klenecek. Devam etmek istiyor musunuz?`)
+        if (!confirmed) {
+          customPuzzleImportSummary = 'Import iptal edildi. Mevcut Ã¶zel soru havuzu korunuyor.'
+          renderConfig()
+          return
+        }
+
+        customPuzzles = result.imported
+        persistCustomPuzzles()
+        customPuzzleNotice = ''
+        customPuzzleImportSummary = `${result.imported.length} soru yÃ¼klendi. ${result.duplicateCount} duplicate atlandÄ±. ${result.invalidCount} geÃ§ersiz satÄ±r atlandÄ±.${result.longCount ? ` ${result.longCount} uzun cevap atlandÄ±.` : ''} Eski Ã¶zel soru havuzu deÄŸiÅŸtirildi.`
+        renderConfig()
+      }
+
+      function saveCustomPuzzle(id) {
+        const answer = document.querySelector(`#edit-answer-${id}`)?.value || ''
+        const category = document.querySelector(`#edit-category-${id}`)?.value || ''
+        const sourceTitle = document.querySelector(`#edit-title-${id}`)?.value || ''
+        const speaker = document.querySelector(`#edit-speaker-${id}`)?.value || ''
+        const difficulty = document.querySelector(`#edit-difficulty-${id}`)?.value || 'medium'
+        const enabled = document.querySelector(`#edit-enabled-${id}`)?.checked === true
+        const normalizedAnswer = normalizeTurkishText(answer)
+
+        if (normalizedAnswer.length < 2) {
+          customPuzzleNotice = 'Cevap en az 2 TÃ¼rkÃ§e harf iÃ§ermeli.'
+          renderConfig()
+          return
+        }
+        if (normalizedAnswer.length > 70) {
+          customPuzzleNotice = 'Cevap 70 TÃ¼rkÃ§e harften uzun olamaz.'
+          renderConfig()
+          return
+        }
+        if (customPuzzleExists(answer, [], id)) {
+          customPuzzleNotice = 'Bu cevap zaten havuzda var.'
+          renderConfig()
+          return
+        }
+
+        customPuzzles = customPuzzles.map((puzzle) => puzzle.id === id ? {
+          ...puzzle,
+          answer: String(answer).trim(),
+          category: String(category || 'Ã–zel Soru').trim() || 'Ã–zel Soru',
+          sourceTitle: String(sourceTitle || '').trim(),
+          clue: String(sourceTitle || 'Ã–zel soru').trim() || 'Ã–zel soru',
+          speaker: String(speaker || 'Host').trim() || 'Host',
+          difficulty: String(difficulty || 'medium').trim() || 'medium',
+          enabled,
+        } : puzzle)
+        persistCustomPuzzles()
+        customPuzzleNotice = 'Kaydedildi.'
+        renderConfig()
       }
 
       function startNameEdit(index) {
@@ -1283,6 +1399,47 @@
         return ''
       }
 
+      function renderCustomPuzzleEditor(puzzle) {
+        return `
+          <article class="round-log-item">
+            <div class="config-grid">
+              <label>
+                Cevap
+                <input id="edit-answer-${escapeHtml(puzzle.id)}" value="${escapeHtml(puzzle.answer)}" maxlength="180" />
+              </label>
+              <label>
+                Kategori
+                <input id="edit-category-${escapeHtml(puzzle.id)}" value="${escapeHtml(puzzle.category)}" maxlength="40" />
+              </label>
+              <label>
+                İpucu / Başlık
+                <input id="edit-title-${escapeHtml(puzzle.id)}" value="${escapeHtml(puzzle.sourceTitle || puzzle.clue || '')}" maxlength="80" />
+              </label>
+              <label>
+                Konuşmacı / Kaynak
+                <input id="edit-speaker-${escapeHtml(puzzle.id)}" value="${escapeHtml(puzzle.speaker)}" maxlength="60" />
+              </label>
+              <label>
+                Zorluk
+                <select id="edit-difficulty-${escapeHtml(puzzle.id)}">
+                  <option value="easy" ${puzzle.difficulty === 'easy' ? 'selected' : ''}>easy</option>
+                  <option value="medium" ${puzzle.difficulty === 'medium' ? 'selected' : ''}>medium</option>
+                  <option value="hard" ${puzzle.difficulty === 'hard' ? 'selected' : ''}>hard</option>
+                </select>
+              </label>
+              <label>
+                Aktif
+                <input id="edit-enabled-${escapeHtml(puzzle.id)}" type="checkbox" ${puzzle.enabled ? 'checked' : ''} />
+              </label>
+            </div>
+            <div class="name-actions">
+              <button class="primary" onclick="saveCustomPuzzle('${escapeHtml(puzzle.id)}')">Kaydet</button>
+              <button onclick="deleteCustomPuzzle('${escapeHtml(puzzle.id)}')">Sil</button>
+            </div>
+          </article>
+        `
+      }
+
       function renderGame() {
         document.body.className = ''
         const gameActionLocked = isGameActionLocked()
@@ -1355,18 +1512,7 @@
       function renderConfig() {
         document.body.className = ''
         const customList = customPuzzles.length
-          ? customPuzzles.map((puzzle) => `
-            <article class="round-log-item">
-              <div>
-                <strong>${escapeHtml(puzzle.answer)}</strong>
-                <span>${escapeHtml(puzzle.category)} / ${puzzle.enabled ? 'Aktif' : 'Pasif'}</span>
-              </div>
-              <div class="name-actions">
-                <button onclick="toggleCustomPuzzle('${escapeHtml(puzzle.id)}')">${puzzle.enabled ? 'Hariç Tut' : 'Dahil Et'}</button>
-                <button onclick="deleteCustomPuzzle('${escapeHtml(puzzle.id)}')">Sil</button>
-              </div>
-            </article>
-          `).join('')
+          ? customPuzzles.map(renderCustomPuzzleEditor).join('')
           : '<p>Henüz özel soru yok.</p>'
         app.innerHTML = `
           <section class="config-screen">
@@ -1432,8 +1578,11 @@
             </section>
             <section class="panel">
               <h2>CSV Import</h2>
+              <p>Kendi sorularınızı CSV dosyasıyla yükleyebilirsiniz.</p>
+              <p>CSV yükleme mevcut özel soru havuzunu tamamen değiştirir.</p>
               <p>CSV kolonları: answer, category, title, speaker, difficulty. Türkçe: cevap, kategori, başlık, ipucu, konuşmacı, zorluk.</p>
-              <p>Excel dosyasını CSV olarak kaydedip yükleyin.</p>
+              <p>Excel kullanıyorsanız dosyanızı CSV olarak kaydedip yükleyin.</p>
+              <p>Yüklediğiniz sorular bu cihazın tarayıcısında saklanır. Başka cihazda kullanmak için özel soru havuzunu dışa aktarın.</p>
               <input id="custom-csv-file" type="file" accept=".csv,text/csv" />
               <button class="primary" onclick="importCustomCsvFile()">CSV Yükle</button>
               ${customPuzzleImportSummary ? `<p>${escapeHtml(customPuzzleImportSummary)}</p>` : ''}

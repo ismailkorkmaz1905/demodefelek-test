@@ -103,7 +103,7 @@ project-docs/BROADCAST_CHECKLIST.md
 
 ## Özel Soru Havuzu
 
-Host, Kurulum ekranından kendi sorularını ekleyebilir veya CSV dosyasıyla toplu soru yükleyebilir.
+Host, Kurulum ekranından kendi sorularını ekleyebilir, listedeki özel soruları düzenleyebilir veya CSV dosyasıyla toplu soru yükleyebilir.
 
 Desteklenen CSV kolonları:
 
@@ -112,9 +112,11 @@ answer,category,title,speaker,difficulty
 cevap,kategori,başlık,ipucu,konuşmacı,zorluk
 ```
 
+CSV import mevcut özel soru havuzunu tamamen değiştirir. Eski özel soruların kaybolmaması için önce export alın.
+
 Excel dosyaları doğrudan parse edilmez. Excel dosyasını CSV olarak kaydedip yükleyin.
 
-Özel sorular tarayıcı localStorage içinde saklanır:
+Özel sorular ve havuz ayarları cihaz bazlı olarak tarayıcı localStorage içinde saklanır:
 
 ```text
 demodefelek.customPuzzles.v1
@@ -122,6 +124,14 @@ demodefelek.customPuzzleSettings.v1
 ```
 
 Custom sorularda `verified: true`, sorunun host tarafından oynanabilir olarak onaylandığı anlamına gelir. Dış kaynak doğrulaması anlamına gelmez.
+
+Kurulum ekranındaki özel soru listesinde cevap, kategori, ipucu, kaynak, zorluk ve aktiflik bilgisi inline düzenlenebilir. Kaydet butonu validation ve duplicate kontrolünden sonra localStorage kaydını günceller.
+
+Özel soru havuzu JSON olarak dışa aktarılabilir:
+
+```text
+demodefelek-custom-puzzles.json
+```
 
 Kurulum ekranında hazır havuz ve özel havuz birlikte veya ayrı oynatılabilir. Production'a push yapılmadan önce değişiklikler test ortamında kontrol edilmelidir.
 
