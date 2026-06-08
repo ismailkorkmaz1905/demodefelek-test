@@ -142,6 +142,7 @@ Kurulum ekranında hazır havuz ve özel havuz birlikte veya ayrı oynatılabili
 - En fazla 4 kişi desteklenir.
 - 1 kişi modunda sıra aynı oyuncuda kalır.
 - 2-4 kişi modunda sıra aktif oyuncular arasında döner.
+- Yeni Bulmaca başlatıldığında başlangıç oyuncusu aktif oyuncular arasında sırayla kayar.
 - Yarışmacılar uygulamaya bağlanmaz.
 - Backend gerekmez.
 - Supabase gerekmez.

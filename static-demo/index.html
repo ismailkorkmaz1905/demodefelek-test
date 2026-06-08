@@ -329,6 +329,11 @@
         return (currentIndex + 1) % playerCount
       }
 
+      function getNextRoundStartingPlayerIndex(currentStartingIndex, playerCount = activePlayerCount()) {
+        if (playerCount <= 1) return 0
+        return (currentStartingIndex + 1) % playerCount
+      }
+
       function resetActiveRoundScores() {
         scores.slice(0, activePlayerCount()).forEach((score) => {
           score.round = 0
@@ -2071,16 +2076,16 @@
         puzzleSolved = false
         roundLogEvents = []
         const nextPuzzleItem = currentPuzzle()
+        startingPlayer = getNextRoundStartingPlayerIndex(startingPlayer)
+        activePlayer = startingPlayer
         eventMessage = nextPuzzleItem && ['proverb', 'anonymous_saying', 'idiom'].includes(nextPuzzleItem.contentType)
-          ? 'Yeni bir klasik Türk sözü başladı.'
-          : 'Yeni bir doğrulanmış modern söz başladı.'
+          ? `Yeni bir klasik Türk sözü başladı. Başlangıç oyuncusu ${contestants[activePlayer]}.`
+          : `Yeni bir doğrulanmış modern söz başladı. Başlangıç oyuncusu ${contestants[activePlayer]}.`
         addRoundLogEvent({
           id: `puzzle-start-${Date.now()}`,
           type: 'host_action',
-          message: 'Yeni bulmaca başladı.',
+          message: `Yeni bulmaca başladı. Sıradaki başlangıç oyuncusu ${contestants[activePlayer]}.`,
         })
-        startingPlayer = 0
-        activePlayer = 0
         resetActiveRoundScores()
         awaitingLetter = false
         clearTimer()
