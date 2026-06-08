@@ -1633,54 +1633,45 @@
           <section class="panel">
             <h2>Bulmaca Cevapları</h2>
             ${puzzleEditorNotice ? `<p>${escapeHtml(puzzleEditorNotice)}</p>` : ''}
-            <div class="round-log-list" style="max-height: 520px; overflow-y: auto;">
-              ${managedPuzzles.map((puzzle, index) => `
-                <article class="round-log-item" data-puzzle-row="${escapeHtml(puzzle.id)}">
-                  <div class="config-grid">
-                    <label>
-                      Sıra
-                      <input value="${index + 1}" disabled />
-                    </label>
-                    <label>
-                      Aktif
-                      <input data-puzzle-enabled type="checkbox" ${puzzle.enabled ? 'checked' : ''} />
-                    </label>
-                    <label>
-                      Kategori
-                      <input data-puzzle-category value="${escapeHtml(puzzle.category || '')}" maxlength="40" />
-                    </label>
-                    <label>
-                      Cevap
-                      <textarea data-puzzle-answer rows="1" maxlength="180">${escapeHtml(puzzle.answer || '')}</textarea>
-                    </label>
-                    <label>
-                      Zorluk
-                      <select data-puzzle-difficulty>
-                        <option value="easy" ${puzzle.difficulty === 'easy' ? 'selected' : ''}>easy</option>
-                        <option value="medium" ${puzzle.difficulty === 'medium' ? 'selected' : ''}>medium</option>
-                        <option value="hard" ${puzzle.difficulty === 'hard' ? 'selected' : ''}>hard</option>
-                      </select>
-                    </label>
-                    <label>
-                      Kaynak
-                      <input data-puzzle-speaker value="${escapeHtml(puzzle.speaker || '')}" maxlength="60" />
-                    </label>
-                    <label>
-                      Verified
-                      <input data-puzzle-verified type="checkbox" ${puzzle.verified ? 'checked' : ''} />
-                    </label>
-                    <label>
-                      Reviewed
-                      <input data-puzzle-reviewed type="checkbox" ${puzzle.reviewed ? 'checked' : ''} />
-                    </label>
-                  </div>
-                  <div class="name-actions">
-                    <button onclick="removeManagedPuzzle('${escapeHtml(puzzle.id)}')">Sil</button>
-                  </div>
-                </article>
-              `).join('')}
+            <div class="puzzle-table-wrapper">
+              <table class="puzzle-table">
+                <thead>
+                  <tr>
+                    <th class="puzzle-col-order">Sıra</th>
+                    <th class="puzzle-col-check">Aktif</th>
+                    <th class="puzzle-col-category">Kategori</th>
+                    <th class="puzzle-col-answer">Cevap</th>
+                    <th class="puzzle-col-difficulty">Zorluk</th>
+                    <th class="puzzle-col-source">Kaynak</th>
+                    <th class="puzzle-col-check">Verified</th>
+                    <th class="puzzle-col-check">Reviewed</th>
+                    <th class="puzzle-col-delete">Sil</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${managedPuzzles.map((puzzle, index) => `
+                    <tr data-puzzle-row="${escapeHtml(puzzle.id)}">
+                      <td><input class="puzzle-order-input" value="${index + 1}" readonly /></td>
+                      <td><input data-puzzle-enabled type="checkbox" ${puzzle.enabled ? 'checked' : ''} /></td>
+                      <td><input data-puzzle-category value="${escapeHtml(puzzle.category || '')}" maxlength="40" /></td>
+                      <td><textarea class="answer-input" data-puzzle-answer rows="1" maxlength="180">${escapeHtml(puzzle.answer || '')}</textarea></td>
+                      <td>
+                        <select data-puzzle-difficulty>
+                          <option value="easy" ${puzzle.difficulty === 'easy' ? 'selected' : ''}>easy</option>
+                          <option value="medium" ${puzzle.difficulty === 'medium' ? 'selected' : ''}>medium</option>
+                          <option value="hard" ${puzzle.difficulty === 'hard' ? 'selected' : ''}>hard</option>
+                        </select>
+                      </td>
+                      <td><input data-puzzle-speaker value="${escapeHtml(puzzle.speaker || '')}" maxlength="60" /></td>
+                      <td><input data-puzzle-verified type="checkbox" ${puzzle.verified ? 'checked' : ''} /></td>
+                      <td><input data-puzzle-reviewed type="checkbox" ${puzzle.reviewed ? 'checked' : ''} /></td>
+                      <td><button class="delete-button" onclick="removeManagedPuzzle('${escapeHtml(puzzle.id)}')">Sil</button></td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
             </div>
-            <div class="name-actions">
+            <div class="puzzle-editor-actions">
               <button onclick="addManagedPuzzleRow()">Yeni Cevap Ekle</button>
               <button class="primary" onclick="saveManagedPuzzleList()">Cevapları Kaydet</button>
               <button onclick="resetManagedPuzzles()">Varsayılan Cevaplara Dön</button>

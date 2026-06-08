@@ -856,6 +856,120 @@
         width: 100%;
       }
 
+      .puzzle-table-wrapper {
+        background: rgb(244 247 251 / 38%);
+        border: var(--panel-border);
+        border-radius: var(--radius);
+        max-height: 420px;
+        overflow: auto;
+      }
+
+      .puzzle-table {
+        border-collapse: collapse;
+        min-width: 980px;
+        table-layout: fixed;
+        width: 100%;
+      }
+
+      .puzzle-table th,
+      .puzzle-table td {
+        border-bottom: 1px solid rgb(143 184 198 / 55%);
+        padding: 6px 8px;
+        vertical-align: middle;
+      }
+
+      .puzzle-table th {
+        background: var(--panel);
+        color: var(--text);
+        font-family: var(--font-heading);
+        font-size: 12px;
+        font-weight: 900;
+        position: sticky;
+        text-align: left;
+        top: 0;
+        z-index: 1;
+      }
+
+      .puzzle-table input,
+      .puzzle-table select,
+      .puzzle-table textarea {
+        border-radius: 8px;
+        font-size: 13px;
+        min-height: 30px;
+        padding: 4px 6px;
+        width: 100%;
+      }
+
+      .puzzle-table input[type="checkbox"] {
+        display: block;
+        height: 16px;
+        margin: 0 auto;
+        min-height: 16px;
+        padding: 0;
+        width: 16px;
+      }
+
+      .puzzle-table .answer-input {
+        font-family: inherit;
+        max-height: 80px;
+        min-height: 32px;
+        resize: vertical;
+      }
+
+      .puzzle-table .puzzle-order-input {
+        color: var(--muted);
+        font-weight: 900;
+        text-align: center;
+      }
+
+      .puzzle-table .delete-button {
+        font-size: 12px;
+        min-height: 30px;
+        padding: 4px 8px;
+        width: 100%;
+      }
+
+      .puzzle-col-order {
+        width: 64px;
+      }
+
+      .puzzle-col-check {
+        width: 78px;
+      }
+
+      .puzzle-col-category {
+        width: 140px;
+      }
+
+      .puzzle-col-answer {
+        width: 330px;
+      }
+
+      .puzzle-col-difficulty {
+        width: 110px;
+      }
+
+      .puzzle-col-source {
+        width: 160px;
+      }
+
+      .puzzle-col-delete {
+        width: 64px;
+      }
+
+      .puzzle-editor-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding-top: 10px;
+      }
+
+      .puzzle-editor-actions button {
+        font-size: 13px;
+        min-height: 34px;
+        padding: 6px 10px;
+      }
+
       .stage {
         min-height: 100vh;
       }
