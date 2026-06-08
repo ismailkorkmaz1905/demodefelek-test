@@ -1,0 +1,1621 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Demodefelek</title>
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <nav>
+      <a class="brand" href="/">Demodefelek</a>
+      <div>
+        <a href="/">Oyun</a>
+        <a href="/host">Kurulum</a>
+      </div>
+    </nav>
+    <main id="app"></main>
+    <script>
+      const contestantStorageKey = 'carkifelek-contestant-names-v2'
+      const defaultContestants = ['BERKE', 'RONVISLY', 'YALÇIN', 'MATAR']
+      let contestants = loadContestantNames()
+      const proverbAnswers = [
+        'Ayağını yorganına göre uzat', 'Damlaya damlaya göl olur', 'Sakla samanı gelir zamanı', 'Ak akçe kara gün içindir', 'Bir elin nesi var iki elin sesi var',
+        'Taşıma su ile değirmen dönmez', 'Ne ekersen onu biçersin', 'Dost kara günde belli olur', 'Gülü seven dikenine katlanır', 'Komşu komşunun külüne muhtaçtır',
+        'İşleyen demir ışıldar', 'Ağaç yaşken eğilir', 'Üzüm üzüme baka baka kararır', 'Yalancının mumu yatsıya kadar yanar', 'Söz gümüşse sükut altındır',
+      ]
+      const idiomAnswers = [
+        'Ağzında bakla ıslanmamak', 'Etekleri zil çalmak', 'Burnundan solumak', 'İpe un sermek', 'Pireyi deve yapmak',
+        'Kılı kırk yarmak', 'Gözden düşmek', 'Gözden geçirmek', 'Burnu havada olmak', 'Dilinde tüy bitmek',
+        'Eli ayağına dolaşmak', 'Kafasına dank etmek', 'Küplere binmek', 'Ağzı kulaklarına varmak', 'Nabza göre şerbet vermek',
+      ]
+      const approvedCandidateAnswers = [
+        'Biz bitti demeden bitmez', 'Martıların yerini işgal ettik', 'Doğruların kaderidir yalnızlık', 'Sen seneye var mısın mesela', 'Kargalar sürüyle, kartal yalnız uçar',
+        'En kötü gününde en şık olacaksın', 'Sen hüzünlüsün diye dünya durup sana yol vermeyecek', 'Her tercih bir vazgeçiştir', 'İnsan en çok kendinde olmayan şeyden bahseder',
+      ]
+      function puzzleSlug(value) {
+        return normalizeTurkish(value).toLocaleLowerCase('tr-TR').replaceAll('ı', 'i').replaceAll('ğ', 'g').replaceAll('ü', 'u').replaceAll('ş', 's').replaceAll('ö', 'o').replaceAll('ç', 'c').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      }
+      const puzzles = [
+        ...proverbAnswers.map((answer) => ({ id: `atasozu-${puzzleSlug(answer)}`, topic: 'culture', category: 'Atasözü', speaker: 'Türk Atasözü', contentType: 'proverb', clue: 'Saf Türk atasözü', context: 'Yaygın Türk atasözü.', answer, verified: true, reviewed: true, enabled: true, difficulty: 'easy', popularityScore: 80 })),
+        ...idiomAnswers.map((answer) => ({ id: `deyim-${puzzleSlug(answer)}`, topic: 'culture', category: 'Deyim', speaker: 'Türk Deyimi', contentType: 'idiom', clue: 'Saf Türk deyimi', context: 'Yaygın Türk deyimi.', answer, verified: true, reviewed: true, enabled: true, difficulty: 'medium', popularityScore: 80 })),
+        ...approvedCandidateAnswers.map((answer) => ({ id: `candidate-${puzzleSlug(answer)}`, topic: 'mixed', category: 'Modern Söz', speaker: 'Anonim', contentType: 'social_media_meme', clue: 'Onaylı modern söz adayı', context: 'Kaynak doğrulaması bekleyen aday.', answer, sourceTitle: '', sourceUrl: '', sourceTime: '', verified: false, reviewed: true, enabled: false, difficulty: 'medium', popularityScore: 0 })),
+      ]
+      let settings = { topic: 'mixed', playerCount: 4 }
+      let scores = contestants.map(() => ({ round: 0, total: 0 }))
+      let puzzleIndex = 0
+      let guessed = ['A', 'İ']
+      let wrongLetters = []
+      let wheel = 'Hazır'
+      let currentSegment = null
+      let eventMessage = 'Oda hazır.'
+      let activePlayer = 0
+      let startingPlayer = 0
+      let awaitingLetter = false
+      let timerRemaining = 30
+      let rotation = 0
+      let spinStart = 0
+      let spinEnd = 0
+      let wheelState = 'idle'
+      let activeSpinId = 0
+      let pendingSpinResult = null
+      let displayedSpinResult = null
+      let puzzleHistory = []
+      let puzzleSolved = false
+      let roundLogEvents = []
+      let editingPlayer = null
+      let editDraft = ''
+      let editError = ''
+      let savePendingPlayer = null
+      let soundEnabled = true
+      let audioContext = null
+      let wheelSpinAudio = null
+      const audioPlayedEvents = new Set()
+      const AUDIO_LEVELS = {
+        master: 0.65,
+        spinTick: 0.22,
+        spinStop: 0.55,
+        correctLetter: 0.55,
+        wrongLetter: 0.50,
+        scoreWin: 0.35,
+        specialResult: 0.60,
+        timer: 0.35,
+        roundWin: 0.65,
+        gameWin: 0.70,
+      }
+      const WHEEL_AUDIO_LEVELS = {
+        click: 0.18,
+        finalClick: 0.28,
+      }
+      const POINTER_ANGLE_DEG = -90
+      const SEGMENT_START_OFFSET_DEG = -90
+      const EXTRA_FULL_TURNS = 5
+      const MIN_SPIN_DURATION_MS = 5000
+      const MAX_SPIN_DURATION_MS = 10000
+      const wheelSegments = [
+        { label: '100', kind: 'points', value: 100, color: '#F4C430' },
+        { label: '150', kind: 'points', value: 150, color: '#22B8CF' },
+        { label: '200', kind: 'points', value: 200, color: '#4FC3F7' },
+        { label: '250', kind: 'points', value: 250, color: '#0E5A86' },
+        { label: 'İFLAS', kind: 'bankrupt', value: 0, color: '#EF4444' },
+        { label: '300', kind: 'points', value: 300, color: '#7C3AED' },
+        { label: 'PAS', kind: 'pass', value: 0, color: '#26364A' },
+        { label: '350', kind: 'points', value: 350, color: '#22C55E' },
+        { label: '2X', kind: 'double', value: 300, color: '#F59E0B' },
+        { label: '400', kind: 'points', value: 400, color: '#1593B1' },
+        { label: 'RAKİPTEN 250', kind: 'steal', value: 250, color: '#F97316' },
+        { label: '450', kind: 'points', value: 450, color: '#F4C430' },
+        { label: 'SERBEST HARF', kind: 'free', value: 0, color: '#22B8CF' },
+        { label: '500', kind: 'points', value: 500, color: '#0E5A86' },
+        { label: 'TEKRAR ÇEVİR', kind: 'again', value: 0, color: '#7C3AED' },
+        { label: '600', kind: 'points', value: 600, color: '#4FC3F7' },
+        { label: 'İFLAS', kind: 'bankrupt', value: 0, color: '#EF4444' },
+        { label: '750', kind: 'points', value: 750, color: '#22C55E' },
+        { label: '100', kind: 'points', value: 100, color: '#F4C430' },
+        { label: '250', kind: 'points', value: 250, color: '#22B8CF' },
+        { label: 'PAS', kind: 'pass', value: 0, color: '#26364A' },
+        { label: '1000', kind: 'points', value: 1000, color: '#F59E0B' },
+        { label: '400', kind: 'points', value: 400, color: '#1593B1' },
+        { label: '500', kind: 'points', value: 500, color: '#F97316' },
+      ]
+
+      function currentPuzzle() {
+        const pool = currentPuzzlePool()
+        return pool[puzzleIndex % pool.length]
+      }
+
+      function currentPuzzlePool() {
+        const activePuzzles = uniqueSelectablePuzzles()
+        const scoped = settings.topic === 'mixed' ? activePuzzles : activePuzzles.filter((puzzle) => puzzle.topic === settings.topic)
+        return scoped.length > 0 ? scoped : activePuzzles
+      }
+
+      function uniqueSelectablePuzzles() {
+        const byAnswer = new Map()
+        puzzles.filter(isPuzzleSelectable).forEach((puzzle) => {
+          const key = normalizeTurkish(puzzle.answer)
+          if (!byAnswer.has(key)) byAnswer.set(key, puzzle)
+        })
+        return [...byAnswer.values()]
+      }
+
+      function isPuzzleSelectable(puzzle) {
+        if (!puzzle.enabled || !puzzle.reviewed || !puzzle.verified) return false
+        if (['proverb', 'anonymous_saying', 'idiom'].includes(puzzle.contentType)) return true
+        return Boolean(puzzle.sourceUrl)
+      }
+
+      function selectNextPuzzleIndex() {
+        const pool = currentPuzzlePool()
+        const playedAnswers = new Set(puzzleHistory.map((puzzle) => puzzle.answer))
+        const previous = puzzleHistory.at(-1)
+        let candidates = pool
+          .filter((puzzle) => !playedAnswers.has(puzzle.answer))
+          .filter((puzzle) => !puzzleHistory.slice(-3).some((played) => played.answer === puzzle.answer))
+
+        if (candidates.length === 0) {
+          candidates = pool
+            .filter((puzzle) => !playedAnswers.has(puzzle.answer))
+            .filter((puzzle) => !(previous && previous.answer === puzzle.answer))
+        }
+        if (candidates.length === 0) {
+          puzzleHistory = []
+          candidates = pool.filter((puzzle) => !(previous && previous.answer === puzzle.answer))
+        }
+        const next = candidates[Math.floor(Math.random() * candidates.length)]
+        return Math.max(0, pool.findIndex((puzzle) => puzzle.id === next.id))
+      }
+
+      function board() {
+        const rows = splitBalancedPuzzleLines(currentPuzzle().answer).map((line) => line.split(' '))
+
+        return rows.map((row) => `
+          <div class="word-row">
+            ${row.map((word) => `
+              <span class="word">
+                ${[...word].map((char) => {
+                  const normalizedChar = normalizeTurkish(char)
+                  if (!isGuessableLetter(normalizedChar)) {
+                    return `<span class="punctuation">${escapeHtml(char)}</span>`
+                  }
+                  const visible = guessed.includes(normalizedChar)
+                  return `<span class="tile ${visible ? 'revealed' : 'hidden'}">${visible ? normalizedChar : ''}</span>`
+                }).join('')}
+              </span>
+            `).join('')}
+          </div>
+        `).join('')
+      }
+
+      const TURKISH_LETTER_REGEX = /[A-ZÇĞIİÖŞÜ]/g
+
+      function normalizeTurkish(value) {
+        return String(value || '').normalize('NFC').toLocaleUpperCase('tr-TR')
+      }
+
+      function normalizeTurkishText(value) {
+        return normalizeTurkish(value).match(TURKISH_LETTER_REGEX)?.join('') || ''
+      }
+
+      function isGuessableLetter(char) {
+        return /^[A-ZÇĞIİÖŞÜ]$/.test(normalizeTurkish(char))
+      }
+
+      function isPuzzleFullyRevealed(answer, revealedLetters) {
+        const revealed = new Set(revealedLetters.map(normalizeTurkish))
+        return [...normalizeTurkish(answer)].every((char) => !isGuessableLetter(char) || revealed.has(char))
+      }
+
+      function guessableLetters(answer) {
+        return [...new Set([...normalizeTurkish(answer)].filter(isGuessableLetter))]
+      }
+
+      function splitBalancedPuzzleLines(answer) {
+        const words = answer.trim().split(/\s+/)
+        const lineCount = Math.min(4, Math.max(2, Math.ceil(answer.length / 42)))
+        const targetLength = Math.ceil(answer.length / lineCount)
+        const lines = []
+        let currentLine = ''
+        words.forEach((word) => {
+          const nextLine = currentLine ? `${currentLine} ${word}` : word
+          if (currentLine && nextLine.length > targetLength && lines.length < lineCount - 1) {
+            lines.push(currentLine)
+            currentLine = word
+          } else {
+            currentLine = nextLine
+          }
+        })
+        if (currentLine) lines.push(currentLine)
+        if (lines.length > 1 && lines[lines.length - 1].length < 8) {
+          lines[lines.length - 2] = `${lines[lines.length - 2]} ${lines.pop()}`
+        }
+        return lines
+      }
+
+      function players() {
+        return contestants.slice(0, settings.playerCount).map((name, index) => `
+          <article class="player ${index === activePlayer ? 'active-player' : ''}" style="border-color: ${['#26D07C', '#F4C430', '#F05A28', '#60A5FA'][index]}">
+            <div class="player-meta">
+              ${playerNameControl(index, name)}
+              <span class="connection-state">Çevrimiçi</span>
+              <div class="score-row">
+                <span><small class="score-label">Tur</small><strong class="round-score">${formatPoints(scores[index].round)}</strong></span>
+                <span><small class="score-label">Toplam</small><strong class="score-value">${formatPoints(displayedTotalScore(scores[index]))}</strong></span>
+              </div>
+            </div>
+          </article>
+        `).join('')
+      }
+
+      function playerNameControl(index, name) {
+        if (editingPlayer !== index) {
+          return `<button class="player-name" onclick="startNameEdit(${index})">${escapeHtml(name)}</button>`
+        }
+        return `
+          <div class="name-editor">
+            <input id="player-name-input-${index}" maxlength="24" value="${escapeHtml(editDraft)}" onkeydown="handleNameEditKey(event, ${index})" />
+            <div class="name-actions">
+              <button class="primary" onclick="savePlayerName(${index})" ${savePendingPlayer === index ? 'disabled' : ''}>${savePendingPlayer === index ? 'Kaydediliyor' : 'Kaydet'}</button>
+              <button onclick="cancelNameEdit()" ${savePendingPlayer === index ? 'disabled' : ''}>İptal</button>
+            </div>
+            ${editError ? `<span class="name-error">${escapeHtml(editError)}</span>` : ''}
+          </div>
+        `
+      }
+
+      function loadContestantNames() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(contestantStorageKey) || '[]')
+          if (!Array.isArray(saved)) return [...defaultContestants]
+          return defaultContestants.map((name, index) => normalizeSavedName(saved[index]) || name)
+        } catch {
+          return [...defaultContestants]
+        }
+      }
+
+      function normalizeSavedName(name) {
+        if (typeof name !== 'string') return ''
+        return name.trim().slice(0, 24)
+      }
+
+      function persistContestantNames() {
+        localStorage.setItem(contestantStorageKey, JSON.stringify(contestants))
+      }
+
+      function startNameEdit(index) {
+        if (savePendingPlayer !== null) return
+        editingPlayer = index
+        editDraft = contestants[index]
+        editError = ''
+        route()
+        window.setTimeout(() => {
+          const input = document.querySelector(`#player-name-input-${index}`)
+          if (input) {
+            input.focus()
+            input.select()
+          }
+        }, 0)
+      }
+
+      function cancelNameEdit() {
+        if (savePendingPlayer !== null) return
+        editingPlayer = null
+        editDraft = ''
+        editError = ''
+        route()
+      }
+
+      function handleNameEditKey(event, index) {
+        if (event.key === 'Enter') {
+          event.preventDefault()
+          savePlayerName(index)
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          cancelNameEdit()
+        }
+      }
+
+      function savePlayerName(index) {
+        if (savePendingPlayer !== null) return
+        const input = document.querySelector(`#player-name-input-${index}`)
+        editDraft = input?.value || ''
+        const nextName = editDraft.trim()
+        const normalizedName = nextName.toLocaleUpperCase('tr-TR')
+
+        if (!nextName) {
+          editError = 'Boş isim kaydedilemez.'
+          route()
+          return
+        }
+        if (nextName.length > 24) {
+          editError = 'İsim en fazla 24 karakter olabilir.'
+          route()
+          return
+        }
+        if (contestants.some((name, playerIndex) => playerIndex !== index && name.trim().toLocaleUpperCase('tr-TR') === normalizedName)) {
+          editError = 'Bu isim zaten kullanılıyor.'
+          route()
+          return
+        }
+
+        savePendingPlayer = index
+        editError = ''
+        route()
+        window.setTimeout(() => {
+          contestants = contestants.map((name, playerIndex) => (playerIndex === index ? nextName : name))
+          persistContestantNames()
+          editingPlayer = null
+          editDraft = ''
+          savePendingPlayer = null
+          route()
+        }, 180)
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;')
+      }
+
+      function puzzlePanel(host = false) {
+        const locked = isGameActionLocked()
+        return `
+          <section class="panel puzzle-panel">
+            <div class="category-strip">
+              <span>${currentPuzzle().category}</span>
+              <span>${[...normalizeTurkish(currentPuzzle().answer)].filter(isGuessableLetter).length} harf</span>
+            </div>
+            <p class="eyebrow">${currentPuzzle().speaker}</p>
+            <h2>${currentPuzzle().clue}</h2>
+            <div class="board" style="--tile-size:${tileSizeForAnswer(currentPuzzle().answer)}px">${board()}</div>
+            ${host ? `
+              <div class="solve-row">
+                <input id="solve-input" placeholder="Cevap tahmini" ${locked ? 'disabled' : ''} />
+                <button onclick="solve()" ${locked ? 'disabled' : ''}>Tahmin Et</button>
+              </div>
+              <p class="eyebrow">Kullanılan Harfler</p>
+              <div class="keyboard">
+                ${'ABCÇDEFGĞHIİJKLMNOÖPRSŞTUÜVYZ'.split('').map((letter) => {
+                  const used = guessed.includes(letter) || wrongLetters.includes(letter)
+                  return `<button ${used || locked ? 'disabled' : ''} class="${guessed.includes(letter) ? 'used-correct' : wrongLetters.includes(letter) ? 'used-wrong' : ''}" onclick="guess('${letter}')">${letter}</button>`
+                }).join('')}
+              </div>
+            ` : ''}
+          </section>
+        `
+      }
+
+      function tileSizeForAnswer(answer) {
+        const count = [...normalizeTurkish(answer)].filter(isGuessableLetter).length
+        if (count <= 35) return 66
+        if (count <= 60) return 56
+        if (count <= 90) return 46
+        if (count <= 115) return 38
+        return 32
+      }
+
+      function wheelPanel() {
+        const angle = 360 / wheelSegments.length
+        const spinDurationMs = pendingSpinResult?.spinDurationMs || displayedSpinResult?.spinDurationMs || MIN_SPIN_DURATION_MS
+        const spinDisabled = wheelState === 'spinning'
+        const spinButtonLabel = puzzleSolved ? 'Yeni Bulmaca' : 'Çarkı Çevir'
+        const segments = wheelSegments
+          .map((segment, index) => wheelSegment(segment, index, angle))
+          .join('')
+        const labels = wheelSegments
+          .map((segment, index) => wheelLabel(segment, index, angle))
+          .join('')
+        const studs = Array.from({ length: wheelSegments.length }, (_, index) => {
+          const point = polarPoint(index * angle, 49)
+          return `<circle class="wheel-stud" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="1.15"></circle>`
+        }).join('')
+        return `
+          <div class="wheel ${wheelState === 'spinning' ? 'is-spinning' : ''}" style="--wheel-rotation:${rotation}deg;--wheel-start:${spinStart}deg;--wheel-end:${spinEnd}deg;--spin-duration-ms:${spinDurationMs}ms">
+            <svg class="wheel-face" viewBox="0 0 100 100" aria-hidden="true" onanimationend="completeSpin(${activeSpinId})">
+              <g>${segments}</g>
+              <g>${labels}</g>
+              <g>${studs}</g>
+            </svg>
+            <b>${visibleWheelResult()}</b>
+          </div>
+          <button class="primary primary-spin-button wheel-spin-action" onclick="spin()" ${spinDisabled ? 'disabled' : ''}>${spinButtonLabel}</button>
+          <p class="wheel-status-note">${wheelState === 'spinning' ? 'Çark dönüyor...' : visibleWheelResult()}</p>
+        `
+      }
+
+      function visibleLastEvent() {
+        if (wheelState === 'spinning' && pendingSpinResult) {
+          return `${pendingSpinResult.playerName} çarkı çeviriyor...`
+        }
+        return eventMessage
+      }
+
+      function visibleExpectedAction() {
+        if (wheelState === 'spinning') return 'Çark dönüyor.'
+        if (puzzleSolved) return 'Tur tamamlandı. Yeni bulmaca başlatın.'
+        if (awaitingLetter) return 'Host harf seçmeli.'
+        if (displayedSpinResult?.needsRespin) return 'Tekrar çevir.'
+        if (displayedSpinResult?.segment.kind === 'again') return 'Tekrar çevir.'
+        return 'Çark çevrilmeye hazır.'
+      }
+
+      function statusChipClass() {
+        if (wheelState === 'spinning') return 'is-spinning'
+        if (awaitingLetter) return 'is-waiting'
+        return 'is-ready'
+      }
+
+      function visibleWheelResult() {
+        if (wheelState === 'spinning') return 'Dönüyor...'
+        return displayedSpinResult?.segmentLabel || wheel
+      }
+
+      function isSpinning() {
+        return wheelState === 'spinning'
+      }
+
+      function isRoundComplete() {
+        return puzzleSolved
+      }
+
+      function isGameActionLocked() {
+        return isSpinning() || isRoundComplete()
+      }
+
+      function roundFlowPanel() {
+        const events = pendingSpinResult
+          ? [
+              ...roundLogEvents,
+              {
+                id: `spin-pending-${pendingSpinResult.spinId}`,
+                type: 'spin',
+                playerName: pendingSpinResult.playerName,
+                message: `${pendingSpinResult.playerName} çarkı çeviriyor...`,
+                createdAt: Date.now(),
+              },
+            ]
+          : roundLogEvents
+        const sortedEvents = sortRoundLogEventsDesc(events)
+        return `
+          <section class="round-flow">
+            <div class="round-flow-head">
+              <p class="eyebrow">Tur Akışı</p>
+              <button onclick="clearRoundFlow()">Temizle</button>
+            </div>
+            <div class="round-flow-list">
+              ${sortedEvents.length ? sortedEvents.map(roundFlowItem).join('') : '<article class="round-flow-item"><time>--:--</time><span>Henüz tur olayı yok.</span></article>'}
+            </div>
+          </section>
+        `
+      }
+
+      function sortRoundLogEventsDesc(events) {
+        return [...events].sort((a, b) => {
+          const timeDifference = b.createdAt - a.createdAt
+          if (timeDifference !== 0) return timeDifference
+          return String(b.id).localeCompare(String(a.id))
+        })
+      }
+
+      function roundFlowItem(event) {
+        return `
+          <article class="round-flow-item ${roundFlowClass(event.type)}">
+            <time>${formatEventTime(event.createdAt)}</time>
+            <span>${escapeHtml(event.message)}</span>
+          </article>
+        `
+      }
+
+      function roundFlowClass(type) {
+        if (['letter_correct', 'vowel_correct'].includes(type)) return 'is-good'
+        if (['letter_wrong', 'letter_duplicate', 'vowel_wrong', 'solve_wrong', 'timeout'].includes(type)) return 'is-bad'
+        if (type === 'bankrupt') return 'is-bankrupt'
+        if (type === 'pass') return 'is-pass'
+        if (type === 'steal_points') return 'is-transfer'
+        if (type === 'solve_correct') return 'is-win'
+        return ''
+      }
+
+      function formatEventTime(createdAt) {
+        return new Intl.DateTimeFormat('tr-TR', { hour: '2-digit', minute: '2-digit' }).format(new Date(createdAt))
+      }
+
+      function formatPoints(points) {
+        return Number(points).toLocaleString('tr-TR')
+      }
+
+      function displayedTotalScore(score) {
+        return score.total + score.round
+      }
+
+      function addRoundLogEvent(event) {
+        if (roundLogEvents.some((item) => item.id === event.id)) return
+        roundLogEvents.push({
+          playerId: event.playerId,
+          playerName: event.playerName,
+          targetPlayerId: event.targetPlayerId,
+          targetPlayerName: event.targetPlayerName,
+          letter: event.letter,
+          occurrences: event.occurrences,
+          wheelValue: event.wheelValue,
+          pointsBefore: event.pointsBefore,
+          pointsChange: event.pointsChange,
+          pointsAfter: event.pointsAfter,
+          roundScore: event.roundScore,
+          totalScore: event.totalScore,
+          answer: event.answer,
+          ...event,
+          createdAt: event.createdAt || Date.now(),
+        })
+      }
+
+      function clearRoundFlow() {
+        if (!window.confirm('Tur Akışı temizlensin mi?')) return
+        roundLogEvents = []
+        route()
+      }
+
+      function wheelSegment(segment, index, sliceAngle) {
+        const startAngle = index * sliceAngle
+        const endAngle = startAngle + sliceAngle
+        const start = polarPoint(startAngle, 49)
+        const end = polarPoint(endAngle, 49)
+        const largeArc = endAngle - startAngle > 180 ? 1 : 0
+        return `<path class="wheel-segment" d="M 50 50 L ${start.x.toFixed(2)} ${start.y.toFixed(2)} A 49 49 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)} Z" fill="${segment.color}"></path>`
+      }
+
+      function wheelLabel(segment, index, sliceAngle) {
+        const startAngle = index * sliceAngle
+        const endAngle = startAngle + sliceAngle
+        const labelAngle = (startAngle + endAngle) / 2
+        const lines = splitWheelLabel(segment.label)
+        const innerRadius = 22
+        const outerRadius = 47
+        const radius = innerRadius + (outerRadius - innerRadius) * (lines.length > 1 ? 0.72 : 0.64)
+        const point = polarPoint(labelAngle, radius)
+        const rotation = labelAngle > 180 ? labelAngle + 90 : labelAngle - 90
+        const sizeClass = /^\d+$/.test(segment.label) ? 'numeric-label' : segment.label.length > 8 ? 'long-label' : 'short-label'
+        const toneClass = colorLuminance(segment.color) > 0.52 ? 'label-on-light' : 'label-on-dark'
+        const lineHeight = segment.label.length > 8 ? 3.65 : 4.3
+        const startOffset = -((lines.length - 1) * lineHeight) / 2
+        return `
+          <g transform="translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) rotate(${rotation.toFixed(2)})">
+            <text class="wheel-label ${sizeClass} ${toneClass}">
+              ${lines.map((line, lineIndex) => `<tspan x="0" y="${(startOffset + lineIndex * lineHeight).toFixed(2)}">${line}</tspan>`).join('')}
+            </text>
+          </g>
+        `
+      }
+
+      function splitWheelLabel(label) {
+        if (label === 'SERBEST HARF') return ['SERBEST', 'HARF']
+        if (label === 'TEKRAR ÇEVİR') return ['TEKRAR', 'ÇEVİR']
+        if (label === 'RAKİPTEN 250') return ['RAKİPTEN', '250']
+        return [label]
+      }
+
+      function polarPoint(angle, radius) {
+        const radians = (angle * Math.PI) / 180
+        return {
+          x: 50 + Math.sin(radians) * radius,
+          y: 50 - Math.cos(radians) * radius,
+        }
+      }
+
+      function colorLuminance(hex) {
+        const normalized = hex.replace('#', '')
+        const red = parseInt(normalized.slice(0, 2), 16) / 255
+        const green = parseInt(normalized.slice(2, 4), 16) / 255
+        const blue = parseInt(normalized.slice(4, 6), 16) / 255
+        return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+      }
+
+      function normalizeDegrees(degrees) {
+        return ((degrees % 360) + 360) % 360
+      }
+
+      function getSegmentCenterAngle(segmentIndex, segmentCount, segmentStartOffset = SEGMENT_START_OFFSET_DEG) {
+        const segmentAngle = 360 / segmentCount
+        return segmentStartOffset + segmentIndex * segmentAngle + segmentAngle / 2
+      }
+
+      function calculateFinalRotationDegrees(previousCompletedRotation, segmentIndex, segmentCount) {
+        const targetCenter = getSegmentCenterAngle(segmentIndex, segmentCount)
+        const alignmentRotation = POINTER_ANGLE_DEG - targetCenter
+        const delta = normalizeDegrees(alignmentRotation - normalizeDegrees(previousCompletedRotation))
+        return previousCompletedRotation + EXTRA_FULL_TURNS * 360 + delta
+      }
+
+      function getSegmentIndexAtPointer(wheelRotationDegrees, segmentCount) {
+        const segmentAngle = 360 / segmentCount
+        const wheelLocalPointerAngle = normalizeDegrees(POINTER_ANGLE_DEG - wheelRotationDegrees - SEGMENT_START_OFFSET_DEG)
+        return Math.floor(wheelLocalPointerAngle / segmentAngle) % segmentCount
+      }
+
+      function createSpinDurationMs() {
+        return MIN_SPIN_DURATION_MS + Math.floor(Math.random() * (MAX_SPIN_DURATION_MS - MIN_SPIN_DURATION_MS + 1))
+      }
+
+      function getAudioContext() {
+        if (!soundEnabled) return null
+        try {
+          audioContext ||= new (window.AudioContext || window.webkitAudioContext)()
+          if (audioContext.state === 'suspended') audioContext.resume().catch(() => {})
+          return audioContext
+        } catch {
+          return null
+        }
+      }
+
+      function audioVolume(level) {
+        return AUDIO_LEVELS.master * level
+      }
+
+      function playAudioOnce(eventId, play) {
+        if (eventId) {
+          if (audioPlayedEvents.has(eventId)) return
+          audioPlayedEvents.add(eventId)
+          if (audioPlayedEvents.size > 250) audioPlayedEvents.delete(audioPlayedEvents.values().next().value)
+        }
+        play()
+      }
+
+      function playCasinoTone({ frequency, endFrequency, startTime = 0, duration = 0.12, type = 'triangle', volume = 0.2, filter = 4200 }) {
+        const context = getAudioContext()
+        if (!context) return
+        try {
+          const now = context.currentTime + startTime
+          const oscillator = context.createOscillator()
+          const filterNode = context.createBiquadFilter()
+          const gain = context.createGain()
+          oscillator.type = type
+          oscillator.frequency.setValueAtTime(frequency, now)
+          if (endFrequency) oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), now + duration)
+          filterNode.type = 'lowpass'
+          filterNode.frequency.setValueAtTime(filter, now)
+          filterNode.Q.setValueAtTime(0.5, now)
+          gain.gain.setValueAtTime(0.0001, now)
+          gain.gain.linearRampToValueAtTime(volume, now + Math.min(0.018, duration * 0.25))
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + duration)
+          oscillator.connect(filterNode)
+          filterNode.connect(gain)
+          gain.connect(context.destination)
+          oscillator.start(now)
+          oscillator.stop(now + duration + 0.04)
+        } catch {}
+      }
+
+      function playCasinoChord(notes, level, eventId) {
+        playAudioOnce(eventId, () => {
+          notes.forEach((note) => {
+            playCasinoTone({
+              frequency: note.frequency,
+              endFrequency: note.endFrequency,
+              startTime: note.startTime || 0,
+              duration: note.duration,
+              type: note.type || 'triangle',
+              volume: audioVolume(level) * (note.volumeScale || 1),
+              filter: note.filter || 4600,
+            })
+          })
+        })
+      }
+
+      function createClickNoiseBuffer(context, duration) {
+        const sampleCount = Math.max(1, Math.floor(context.sampleRate * duration))
+        const buffer = context.createBuffer(1, sampleCount, context.sampleRate)
+        const data = buffer.getChannelData(0)
+        for (let index = 0; index < sampleCount; index += 1) {
+          const decay = 1 - index / sampleCount
+          data[index] = (Math.random() * 2 - 1) * decay * decay
+        }
+        return buffer
+      }
+
+      function randomRange(min, max) {
+        return min + Math.random() * (max - min)
+      }
+
+      function connectWheelClickFilterChain(context, source, destination, now) {
+        const highPass = context.createBiquadFilter()
+        const lowMidCut = context.createBiquadFilter()
+        const presencePeak = context.createBiquadFilter()
+        const lowPass = context.createBiquadFilter()
+
+        highPass.type = 'highpass'
+        highPass.frequency.setValueAtTime(160, now)
+        highPass.Q.setValueAtTime(0.7, now)
+        lowMidCut.type = 'peaking'
+        lowMidCut.frequency.setValueAtTime(320, now)
+        lowMidCut.gain.setValueAtTime(-1.5, now)
+        lowMidCut.Q.setValueAtTime(1.0, now)
+        presencePeak.type = 'peaking'
+        presencePeak.frequency.setValueAtTime(1100, now)
+        presencePeak.gain.setValueAtTime(2, now)
+        presencePeak.Q.setValueAtTime(0.8, now)
+        lowPass.type = 'lowpass'
+        lowPass.frequency.setValueAtTime(3500, now)
+
+        source.connect(highPass)
+        highPass.connect(lowMidCut)
+        lowMidCut.connect(presencePeak)
+        presencePeak.connect(lowPass)
+        lowPass.connect(destination)
+      }
+
+      function playMechanicalWheelClick(variant = 0, finalClick = false) {
+        const context = getAudioContext()
+        if (!context) return
+        try {
+          const now = context.currentTime
+          const noise = context.createBufferSource()
+          const noiseHighPass = context.createBiquadFilter()
+          const noiseLowPass = context.createBiquadFilter()
+          const noiseGain = context.createGain()
+          const body = context.createOscillator()
+          const bodyGain = context.createGain()
+          const outputGain = context.createGain()
+          const noiseDuration = 0.018
+          const bodyDuration = finalClick ? 0.075 : 0.038
+          const attack = finalClick ? 0.002 : 0.001
+          const decay = finalClick ? 0.070 : 0.035
+          const bodyStartFrequency = finalClick ? 320 : 430
+          const bodyEndFrequency = finalClick ? 250 : 280
+          const level = audioVolume(finalClick ? WHEEL_AUDIO_LEVELS.finalClick : WHEEL_AUDIO_LEVELS.click)
+          const playbackRate = finalClick ? randomRange(0.94, 0.99) : randomRange(0.98, 1.07)
+
+          noise.buffer = createClickNoiseBuffer(context, noiseDuration)
+          noise.playbackRate.setValueAtTime(playbackRate, now)
+          noiseHighPass.type = 'highpass'
+          noiseHighPass.frequency.setValueAtTime(400, now)
+          noiseLowPass.type = 'lowpass'
+          noiseLowPass.frequency.setValueAtTime(4000, now)
+          noiseGain.gain.setValueAtTime(0.0001, now)
+          noiseGain.gain.linearRampToValueAtTime(level * 0.55, now + attack)
+          noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + decay)
+
+          body.type = 'triangle'
+          body.frequency.setValueAtTime(bodyStartFrequency, now)
+          body.frequency.exponentialRampToValueAtTime(bodyEndFrequency, now + bodyDuration)
+          bodyGain.gain.setValueAtTime(0.0001, now)
+          bodyGain.gain.linearRampToValueAtTime(level * 0.8, now + attack)
+          bodyGain.gain.exponentialRampToValueAtTime(0.0001, now + decay)
+          outputGain.gain.setValueAtTime(1, now)
+
+          noise.connect(noiseHighPass)
+          noiseHighPass.connect(noiseLowPass)
+          noiseLowPass.connect(noiseGain)
+          noiseGain.connect(outputGain)
+          body.connect(bodyGain)
+          bodyGain.connect(outputGain)
+          connectWheelClickFilterChain(context, outputGain, context.destination, now)
+          noise.start(now)
+          noise.stop(now + noiseDuration + 0.01)
+          body.start(now)
+          body.stop(now + bodyDuration + 0.02)
+        } catch {}
+      }
+
+      function playSpinStop(eventId) {
+        playAudioOnce(eventId, () => playMechanicalWheelClick(0, true))
+      }
+
+      function scheduleWheelTicks(spinResult) {
+        const durationMs = Math.max(MIN_SPIN_DURATION_MS, Math.min(MAX_SPIN_DURATION_MS, spinResult?.spinDurationMs || MIN_SPIN_DURATION_MS))
+        const segmentAngle = 360 / wheelSegments.length
+        const startBoundary = Math.floor(spinStart / segmentAngle)
+        let lastBoundary = startBoundary
+        const playedBoundaries = new Set()
+        const tickTimers = []
+        const sampleCount = Math.max(120, Math.round(durationMs / 16))
+
+        for (let sample = 1; sample <= sampleCount; sample += 1) {
+          const timeRatio = sample / sampleCount
+          let animationProgress = timeRatio
+          if (timeRatio <= 0.78) {
+            animationProgress = (timeRatio / 0.78) * ((spinResult.finalRotationDegrees - 14 - spinStart) / (spinResult.finalRotationDegrees - spinStart))
+          } else if (timeRatio <= 0.88) {
+            animationProgress = ((spinResult.finalRotationDegrees - 14 - spinStart) + ((timeRatio - 0.78) / 0.10) * 20) / (spinResult.finalRotationDegrees - spinStart)
+          }
+          const easedProgress = Math.max(0, Math.min(1, 0.04 * animationProgress + 0.96 * Math.pow(animationProgress, 1.72)))
+          const currentRotation = spinStart + (spinResult.finalRotationDegrees - spinStart) * easedProgress
+          const currentBoundary = Math.floor(currentRotation / segmentAngle)
+          if (currentBoundary !== lastBoundary) {
+            const step = currentBoundary > lastBoundary ? 1 : -1
+            for (let boundary = lastBoundary + step; step > 0 ? boundary <= currentBoundary : boundary >= currentBoundary; boundary += step) {
+              if (playedBoundaries.has(boundary)) continue
+              playedBoundaries.add(boundary)
+              const variant = playedBoundaries.size % 3
+              const timerId = window.setTimeout(() => playMechanicalWheelClick(variant, false), Math.max(20, durationMs * timeRatio - 20))
+              tickTimers.push(timerId)
+            }
+            lastBoundary = currentBoundary
+          }
+        }
+
+        return tickTimers
+      }
+
+      function playWheelSpin(spinResult) {
+        stopWheelSpin()
+        if (!getAudioContext()) return
+        wheelSpinAudio = {
+          spinId: spinResult?.spinId,
+          playedFinalStop: false,
+          tickTimers: scheduleWheelTicks(spinResult),
+        }
+      }
+
+      function stopWheelSpin() {
+        if (!wheelSpinAudio) return
+        try {
+          wheelSpinAudio.tickTimers?.forEach((timerId) => window.clearTimeout(timerId))
+        } catch {}
+        wheelSpinAudio = null
+      }
+
+      function playWheelStop() {
+        playSpinStop(`spin-stop-${displayedSpinResult?.spinId || pendingSpinResult?.spinId || Date.now()}`)
+      }
+
+      function playCorrectLetter(eventId) {
+        playCasinoChord([
+          { frequency: 523, duration: 0.11, volumeScale: 0.75 },
+          { frequency: 659, startTime: 0.09, duration: 0.12, volumeScale: 0.82 },
+          { frequency: 784, startTime: 0.19, duration: 0.16, volumeScale: 0.9 },
+        ], AUDIO_LEVELS.correctLetter, eventId)
+      }
+
+      function playWrongLetter(eventId) {
+        playCasinoChord([
+          { frequency: 330, endFrequency: 294, duration: 0.16, type: 'triangle', volumeScale: 0.8, filter: 2600 },
+          { frequency: 262, endFrequency: 196, startTime: 0.16, duration: 0.20, type: 'triangle', volumeScale: 0.9, filter: 2400 },
+        ], AUDIO_LEVELS.wrongLetter, eventId)
+      }
+
+      function playScoreWin(eventId) {
+        playCasinoChord([
+          { frequency: 988, duration: 0.07, type: 'square', volumeScale: 0.45, filter: 3200 },
+          { frequency: 1319, startTime: 0.07, duration: 0.09, type: 'triangle', volumeScale: 0.75 },
+        ], AUDIO_LEVELS.scoreWin, eventId)
+      }
+
+      function playBankrupt(eventId) {
+        playCasinoChord([
+          { frequency: 392, endFrequency: 294, duration: 0.30, type: 'triangle', volumeScale: 0.85, filter: 2600 },
+          { frequency: 294, endFrequency: 247, startTime: 0.22, duration: 0.28, type: 'triangle', volumeScale: 0.9, filter: 2200 },
+          { frequency: 147, startTime: 0.54, duration: 0.20, type: 'triangle', volumeScale: 1.05, filter: 1600 },
+        ], AUDIO_LEVELS.specialResult, eventId)
+      }
+
+      function playPassSound(eventId) {
+        playCasinoChord([
+          { frequency: 392, endFrequency: 330, duration: 0.16, type: 'triangle', volumeScale: 0.7, filter: 2400 },
+          { frequency: 262, startTime: 0.15, duration: 0.18, type: 'triangle', volumeScale: 0.75, filter: 2200 },
+        ], AUDIO_LEVELS.specialResult * 0.75, eventId)
+      }
+
+      function playDouble(eventId) {
+        playCasinoChord([
+          { frequency: 659, duration: 0.12, volumeScale: 0.75 },
+          { frequency: 988, startTime: 0.10, duration: 0.16, volumeScale: 0.92 },
+          { frequency: 1319, startTime: 0.25, duration: 0.18, volumeScale: 0.9 },
+        ], AUDIO_LEVELS.specialResult, eventId)
+      }
+
+      function playFreeLetter(eventId) {
+        playCasinoChord([
+          { frequency: 740, duration: 0.15, volumeScale: 0.62 },
+          { frequency: 1175, startTime: 0.13, duration: 0.20, volumeScale: 0.82 },
+          { frequency: 1568, startTime: 0.30, duration: 0.18, type: 'triangle', volumeScale: 0.65 },
+        ], AUDIO_LEVELS.specialResult * 0.88, eventId)
+      }
+
+      function playSpinAgain(eventId) {
+        playCasinoChord([
+          { frequency: 440, endFrequency: 784, duration: 0.22, volumeScale: 0.78 },
+          { frequency: 988, startTime: 0.22, duration: 0.16, type: 'square', volumeScale: 0.32, filter: 3200 },
+        ], AUDIO_LEVELS.specialResult * 0.9, eventId)
+      }
+
+      function playStealPoints(eventId) {
+        playCasinoChord([
+          { frequency: 880, endFrequency: 622, duration: 0.16, type: 'triangle', volumeScale: 0.65 },
+          { frequency: 784, endFrequency: 1175, startTime: 0.16, duration: 0.24, type: 'triangle', volumeScale: 0.9 },
+          { frequency: 1568, startTime: 0.36, duration: 0.10, type: 'square', volumeScale: 0.24, filter: 3400 },
+        ], AUDIO_LEVELS.specialResult * 0.85, eventId)
+      }
+
+      function playCorrectAnswer(eventId) {
+        playCasinoChord([
+          { frequency: 523, duration: 0.16, volumeScale: 0.7 },
+          { frequency: 659, startTime: 0.14, duration: 0.16, volumeScale: 0.76 },
+          { frequency: 784, startTime: 0.28, duration: 0.18, volumeScale: 0.84 },
+          { frequency: 1047, startTime: 0.44, duration: 0.24, volumeScale: 0.92 },
+          { frequency: 1319, startTime: 0.66, duration: 0.34, volumeScale: 0.72 },
+        ], AUDIO_LEVELS.roundWin, eventId)
+      }
+
+      function playWrongAnswer(eventId) {
+        playCasinoChord([
+          { frequency: 392, endFrequency: 330, duration: 0.22, volumeScale: 0.86, filter: 2600 },
+          { frequency: 294, endFrequency: 220, startTime: 0.20, duration: 0.30, volumeScale: 0.92, filter: 2200 },
+        ], AUDIO_LEVELS.wrongLetter, eventId)
+      }
+
+      function playTimerTick(eventId) {
+        playCasinoChord([
+          { frequency: 1047, duration: 0.045, type: 'square', volumeScale: 0.35, filter: 3000 },
+        ], AUDIO_LEVELS.timer, eventId)
+      }
+
+      function playTimerExpired(eventId) {
+        playCasinoChord([
+          { frequency: 659, endFrequency: 523, duration: 0.18, volumeScale: 0.72, filter: 2600 },
+          { frequency: 392, endFrequency: 262, startTime: 0.18, duration: 0.30, volumeScale: 0.84, filter: 2200 },
+        ], AUDIO_LEVELS.timer * 1.12, eventId)
+      }
+
+      function playRoundWin(eventId) {
+        playCorrectAnswer(eventId)
+      }
+
+      function playGameWin(eventId) {
+        playCasinoChord([
+          { frequency: 523, duration: 0.18, volumeScale: 0.72 },
+          { frequency: 659, startTime: 0.16, duration: 0.18, volumeScale: 0.78 },
+          { frequency: 784, startTime: 0.32, duration: 0.18, volumeScale: 0.84 },
+          { frequency: 1047, startTime: 0.50, duration: 0.26, volumeScale: 0.92 },
+          { frequency: 1319, startTime: 0.76, duration: 0.32, volumeScale: 0.86 },
+          { frequency: 1568, startTime: 1.06, duration: 0.42, volumeScale: 0.78 },
+        ], AUDIO_LEVELS.gameWin, eventId)
+      }
+
+      function stopAllSounds() {
+        stopWheelSpin()
+      }
+
+      function playSegmentResultSound(segment, spinId) {
+        if (segment.kind === 'bankrupt') playBankrupt(`bankrupt-sound-${spinId}`)
+        if (segment.kind === 'pass') playPassSound(`pass-sound-${spinId}`)
+        if (segment.kind === 'double') playDouble(`double-sound-${spinId}`)
+        if (segment.kind === 'free') playFreeLetter(`free-sound-${spinId}`)
+        if (segment.kind === 'again') playSpinAgain(`again-sound-${spinId}`)
+        if (segment.kind === 'steal') playStealPoints(`steal-spin-sound-${spinId}`)
+      }
+
+      function timerClass() {
+        if (timerRemaining <= 5) return 'danger'
+        if (timerRemaining <= 10) return 'warning'
+        return ''
+      }
+
+      function renderGame() {
+        document.body.className = ''
+        const gameActionLocked = isGameActionLocked()
+        const newPuzzleLocked = isSpinning()
+        const configLocked = isSpinning()
+        app.innerHTML = `
+          <section class="host-shell">
+            <header class="panel room-head">
+              <div>
+                <p class="eyebrow">${settings.topic === 'football' ? 'Futbol' : settings.topic === 'culture' ? 'Genel Kültür' : 'Karma'} / ${settings.playerCount} Yarışmacı</p>
+                <h1>Demodefelek</h1>
+              </div>
+              <div class="header-status">
+                <div class="turn-box">
+                  <span class="turn-label">Sıra</span>
+                  <strong>${contestants[activePlayer]}</strong>
+                </div>
+                <div class="timer-box">
+                  <span class="timer-unit">Süre</span>
+                  <strong class="timer ${timerClass()}">${timerRemaining}</strong>
+                  <span class="timer-unit">sn</span>
+                  <div class="timer-progress"><span style="--timer-progress:${Math.max(0, Math.min(1, timerRemaining / 30))}"></span></div>
+                </div>
+              </div>
+              <div>
+                <button class="secondary-action" onclick="revealLetter()" ${gameActionLocked ? 'disabled' : ''}>Harf Aç</button>
+                <button class="secondary-action" onclick="passTurn()" ${gameActionLocked ? 'disabled' : ''}>Pas</button>
+                <button class="secondary-action" onclick="nextPuzzle()" ${newPuzzleLocked ? 'disabled' : ''}>Yeni Bulmaca</button>
+                <button class="secondary-action" onclick="goToConfig()" ${configLocked ? 'disabled' : ''}>Kurulum</button>
+              </div>
+            </header>
+            <section class="stage-main">
+              <section class="panel wheel-panel"><h2>Çark Kontrol</h2>${wheelPanel()}</section>
+              ${puzzlePanel(true)}
+              <section class="panel control-panel">
+                <h2>Tur Kontrolü</h2>
+                <p class="eyebrow">Son Olay</p>
+                <p class="event">${visibleLastEvent()}</p>
+                <p class="eyebrow">Beklenen Aksiyon</p>
+                <p class="status-line status-chip ${statusChipClass()}">${visibleExpectedAction()}</p>
+                <div class="control-stats">
+                  <div class="info-chip"><span>Süre</span><strong><span class="timer ${timerClass()}">${timerRemaining}</span> sn</strong></div>
+                  <div class="info-chip"><span>Sıra</span><strong>${contestants[activePlayer]}</strong></div>
+                  <div class="info-chip"><span>Çark</span><strong>${visibleWheelResult()}</strong></div>
+                </div>
+                ${roundFlowPanel()}
+              </section>
+            </section>
+            <section class="panel score-dock" style="--player-count:${settings.playerCount}">
+              <h2>Yarışmacılar</h2>
+              <div class="contestants">${players()}</div>
+            </section>
+          </section>
+        `
+      }
+
+      function renderConfig() {
+        document.body.className = ''
+        app.innerHTML = `
+          <section class="config-screen">
+            <section class="panel">
+              <p class="eyebrow">Host Kurulum</p>
+              <h1>Oyunu Ayarla</h1>
+              <div class="config-grid">
+                <label>
+                  Konu
+                  <select id="topic-select">
+                    <option value="mixed" ${settings.topic === 'mixed' ? 'selected' : ''}>Karma</option>
+                    <option value="football" ${settings.topic === 'football' ? 'selected' : ''}>Futbol</option>
+                    <option value="culture" ${settings.topic === 'culture' ? 'selected' : ''}>Genel Kültür</option>
+                  </select>
+                </label>
+                <label>
+                  Yarışmacı Sayısı
+                  <select id="player-count-select">
+                    <option value="1" ${settings.playerCount === 1 ? 'selected' : ''}>1</option>
+                    <option value="2" ${settings.playerCount === 2 ? 'selected' : ''}>2</option>
+                    <option value="3" ${settings.playerCount === 3 ? 'selected' : ''}>3</option>
+                    <option value="4" ${settings.playerCount === 4 ? 'selected' : ''}>4</option>
+                  </select>
+                </label>
+              </div>
+              <button class="primary" onclick="applyConfig()">Oyunu Aç</button>
+            </section>
+            <section class="panel">
+              <h2>Yayın ekranı</h2>
+              <p>Yarışmacılara ayrı sayfa yok. Host tek oyun ekranını paylaşır; yayın düzeni OBS tarafında yapılır.</p>
+            </section>
+          </section>
+        `
+      }
+
+      function applyConfig() {
+        if (isSpinning()) return
+        stopWheelSpin()
+        settings = {
+          topic: document.querySelector('#topic-select').value,
+          playerCount: Number(document.querySelector('#player-count-select').value),
+        }
+        scores = contestants.map(() => ({ round: 0, total: 0 }))
+        puzzleIndex = 0
+        guessed = []
+        wrongLetters = []
+        wheel = 'Hazır'
+        currentSegment = null
+        wheelState = 'idle'
+        pendingSpinResult = null
+        displayedSpinResult = null
+        roundLogEvents = []
+        puzzleHistory = []
+        puzzleSolved = false
+        eventMessage = 'Oyun hazır.'
+        addRoundLogEvent({
+          id: `puzzle-start-${Date.now()}`,
+          type: 'host_action',
+          message: 'Yeni bulmaca başladı.',
+        })
+        activePlayer = 0
+        startingPlayer = 0
+        awaitingLetter = false
+        clearTimer()
+        timerRemaining = 30
+        history.pushState(null, '', '/')
+        renderGame()
+      }
+
+      function spin() {
+        if (isSpinning()) {
+          return
+        }
+        if (isRoundComplete()) {
+          prepareNextPuzzle()
+          return
+        }
+        if (awaitingLetter) {
+          eventMessage = 'Önce harf seçilmeli.'
+          route()
+          return
+        }
+        const index = Math.floor(Math.random() * wheelSegments.length)
+        const segment = wheelSegments[index]
+        const spinId = activeSpinId + 1
+        const finalRotationDegrees = calculateFinalRotationDegrees(rotation, index, wheelSegments.length)
+        const spinDurationMs = createSpinDurationMs()
+        activeSpinId = spinId
+        pendingSpinResult = {
+          spinId,
+          segmentId: segment.id || `segment-${index}`,
+          segmentIndex: index,
+          segmentLabel: segment.label,
+          segmentValue: segment.value,
+          finalRotationDegrees,
+          spinDurationMs,
+          segment,
+          playerIndex: activePlayer,
+          playerName: contestants[activePlayer],
+        }
+        displayedSpinResult = null
+        currentSegment = null
+        wheel = 'Dönüyor...'
+        spinStart = rotation
+        spinEnd = finalRotationDegrees
+        rotation = spinEnd
+        wheelState = 'spinning'
+        eventMessage = `${contestants[activePlayer]} çarkı çeviriyor...`
+        playWheelSpin(pendingSpinResult)
+        route()
+      }
+
+      function completeSpin(completedSpinId) {
+        if (completedSpinId !== activeSpinId || !pendingSpinResult) return
+        stopWheelSpin()
+        const visualSegmentIndex = getSegmentIndexAtPointer(pendingSpinResult.finalRotationDegrees, wheelSegments.length)
+        if (visualSegmentIndex !== pendingSpinResult.segmentIndex) {
+          console.warn('Wheel alignment mismatch', { visualSegmentIndex, spin: pendingSpinResult })
+          return
+        }
+        playWheelStop()
+
+        displayedSpinResult = pendingSpinResult
+        pendingSpinResult = null
+        wheelState = 'settled'
+        currentSegment = displayedSpinResult.segment
+        wheel = displayedSpinResult.segmentLabel
+        playSegmentResultSound(currentSegment, displayedSpinResult.spinId)
+        eventMessage = `${displayedSpinResult.playerName} çarkı çevirdi: ${displayedSpinResult.segmentLabel}`
+        addRoundLogEvent({
+          id: `spin-${displayedSpinResult.spinId}`,
+          type: 'spin',
+          playerName: displayedSpinResult.playerName,
+          wheelValue: displayedSpinResult.segmentValue,
+          message: `${displayedSpinResult.playerName} çarkı çevirdi ve ${displayedSpinResult.segmentLabel} geldi.`,
+        })
+        applySettledSpinResult(currentSegment)
+        route()
+      }
+
+      function applySettledSpinResult(segment) {
+        const playerName = contestants[activePlayer]
+        if (segment.kind === 'bankrupt') {
+          const erasedPoints = scores[activePlayer].round
+          scores[activePlayer].round = 0
+          advanceTurnAfterSpin()
+          addRoundLogEvent({
+            id: `bankrupt-${displayedSpinResult.spinId}`,
+            type: 'bankrupt',
+            playerName,
+            pointsChange: -erasedPoints,
+            message: `${playerName} İFLAS etti. ${formatPoints(erasedPoints)} tur puanı silindi. Toplam puanı korunuyor. Sıra ${contestants[activePlayer]}'e geçti.`,
+          })
+          return
+        }
+        if (segment.kind === 'pass') {
+          advanceTurnAfterSpin()
+          addRoundLogEvent({
+            id: `pass-${displayedSpinResult.spinId}`,
+            type: 'pass',
+            playerName,
+            message: `${playerName} PAS geçti. Sıra ${contestants[activePlayer]}'e geçti.`,
+          })
+          return
+        }
+        if (segment.kind === 'steal') {
+          stealFromLeader()
+          return
+        }
+        if (segment.kind === 'double') {
+          addRoundLogEvent({
+            id: `double-${displayedSpinResult.spinId}`,
+            type: 'double',
+            playerName,
+            message: `${playerName}, 2X hakkı kazandı. Bir sonraki doğru sessiz harf puanı iki kat olacak.`,
+          })
+        }
+        if (segment.kind === 'free') {
+          addRoundLogEvent({
+            id: `free-${displayedSpinResult.spinId}`,
+            type: 'free_letter',
+            playerName,
+            message: `${playerName} SERBEST HARF hakkı kazandı. Bir harfi ücretsiz seçebilir.`,
+          })
+        }
+        if (segment.kind === 'again') {
+          addRoundLogEvent({
+            id: `again-${displayedSpinResult.spinId}`,
+            type: 'spin_again',
+            playerName,
+            message: `${playerName} TEKRAR ÇEVİR hakkı kazandı. Sıra değişmeden yeniden çark çevirecek.`,
+          })
+          return
+        }
+
+        awaitingLetter = true
+        startTimer(30)
+      }
+
+      function advanceTurnAfterSpin() {
+        clearTimer()
+        activePlayer = (activePlayer + 1) % settings.playerCount
+        awaitingLetter = false
+        timerRemaining = 30
+      }
+
+      function guess(letter) {
+        if (isGameActionLocked()) return
+        if (!awaitingLetter) {
+          eventMessage = 'Önce çark çevrilmeli.'
+          route()
+          return
+        }
+        if (guessed.includes(letter) || wrongLetters.includes(letter)) {
+          eventMessage = 'Bu harf daha önce seçildi.'
+          addRoundLogEvent({
+            id: `duplicate-${letter}-${Date.now()}`,
+            type: 'letter_duplicate',
+            letter,
+            message: `"${letter}" harfi daha önce seçilmişti. Puan kazanılmadı.`,
+          })
+          route()
+          return
+        }
+        const vowel = isVowel(letter)
+        const freeLetter = currentSegment?.kind === 'free'
+        const playerName = contestants[activePlayer]
+        const wheelValue = currentSegment?.value || 0
+        if (vowel && !freeLetter) {
+          if (scores[activePlayer].round < 200) {
+            eventMessage = 'Yetersiz tur puanı.'
+            addRoundLogEvent({
+              id: `vowel-denied-${letter}-${Date.now()}`,
+              type: 'vowel_wrong',
+              playerName,
+              letter,
+              message: `${playerName}, "${letter}" harfini almak istedi ancak 200 tur puanı yok.`,
+            })
+            route()
+            return
+          }
+          scores[activePlayer].round -= 200
+        }
+        const occurrenceCount = countOccurrences(currentPuzzle().answer, letter)
+        if (occurrenceCount > 0) {
+          if (!guessed.includes(letter)) guessed.push(letter)
+          const earnsPoints = !vowel && currentSegment && ['points', 'double'].includes(currentSegment.kind)
+          const multiplier = currentSegment?.kind === 'double' ? 2 : 1
+          const gained = earnsPoints ? currentSegment.value * occurrenceCount * multiplier : 0
+          scores[activePlayer].round += gained
+          eventMessage = gained > 0 ? `${contestants[activePlayer]} +${gained} puan aldı.` : `${contestants[activePlayer]} doğru harf söyledi.`
+          playCorrectLetter(`correct-letter-${playerName}-${letter}-${Date.now()}`)
+          if (gained > 0) playScoreWin(`score-win-${playerName}-${letter}-${Date.now()}`)
+          addRoundLogEvent({
+            id: `letter-${letter}-${Date.now()}`,
+            type: vowel ? 'vowel_correct' : 'letter_correct',
+            playerName,
+            letter,
+            occurrences: occurrenceCount,
+            wheelValue,
+            pointsChange: gained,
+            roundScore: scores[activePlayer].round,
+            message: vowel
+              ? `${playerName}, ${freeLetter ? 'ücretsiz' : '200 puan ödeyerek'} "${letter}" harfini aldı. Cevapta ${occurrenceCount} tane "${letter}" bulundu. Sıra ${playerName}'de kaldı.`
+              : `${playerName} "${letter}" harfini tahmin etti. Cevapta ${occurrenceCount} tane "${letter}" bulundu. ${gained > 0 ? `${playerName}, ${occurrenceCount > 1 ? `${formatPoints(currentSegment.value)} x ${occurrenceCount} = ` : ''}${formatPoints(gained)} puan kazandı.` : 'Puan kazanılmadı.'}`,
+          })
+          awaitingLetter = false
+          clearTimer()
+          finalizePuzzleIfSolved(playerName)
+        } else {
+          if (!wrongLetters.includes(letter)) wrongLetters.push(letter)
+          eventMessage = 'Bu harf yok. Sıra değişti.'
+          awaitingLetter = false
+          clearTimer()
+          nextTurn(false)
+          playWrongLetter(`wrong-letter-${playerName}-${letter}-${Date.now()}`)
+          addRoundLogEvent({
+            id: `wrong-letter-${letter}-${Date.now()}`,
+            type: vowel ? 'vowel_wrong' : 'letter_wrong',
+            playerName,
+            letter,
+            pointsChange: vowel && !freeLetter ? -200 : 0,
+            message: vowel
+              ? `${playerName}, 200 puan ödeyerek "${letter}" harfini aldı. Cevapta "${letter}" harfi bulunamadı. Sıra ${contestants[activePlayer]}'e geçti.`
+              : `${playerName} "${letter}" harfini tahmin etti. Cevapta "${letter}" harfi bulunamadı. Sıra ${contestants[activePlayer]}'e geçti.`,
+          })
+        }
+        route()
+      }
+
+      function finalizePuzzleIfSolved(playerName) {
+        if (puzzleSolved || !isPuzzleFullyRevealed(currentPuzzle().answer, guessed)) return
+        puzzleSolved = true
+        stopWheelSpin()
+        clearTimer()
+        guessed = guessableLetters(currentPuzzle().answer)
+        const bankedPoints = scores[activePlayer].round
+        const totalGain = bankedPoints + 500
+        scores[activePlayer].total += totalGain
+        scores.forEach((score) => {
+          score.round = 0
+        })
+        awaitingLetter = false
+        currentSegment = null
+        wheel = 'Hazır'
+        wheelState = 'idle'
+        pendingSpinResult = null
+        displayedSpinResult = null
+        timerRemaining = 30
+        eventMessage = `${contestants[activePlayer]} turu kazandı.`
+        playRoundWin(`round-win-auto-${currentPuzzle().id || Date.now()}`)
+        addRoundLogEvent({
+          id: `auto-solve-${currentPuzzle().id || Date.now()}`,
+          type: 'solve_correct',
+          playerName,
+          answer: currentPuzzle().answer,
+          pointsChange: totalGain,
+          totalScore: scores[activePlayer].total,
+          message: `${playerName} son harfi açtı. Doğru cevap: "${currentPuzzle().answer}". Söz sahibi: ${currentPuzzle().speaker}. Kategori: ${currentPuzzle().category}. ${currentPuzzle().context || ''}`,
+        })
+      }
+
+      function nextTurn(shouldRender = true) {
+        if (isGameActionLocked()) return
+        stopWheelSpin()
+        clearTimer()
+        activePlayer = (activePlayer + 1) % settings.playerCount
+        awaitingLetter = false
+        wheel = 'Hazır'
+        currentSegment = null
+        wheelState = 'idle'
+        pendingSpinResult = null
+        displayedSpinResult = null
+        timerRemaining = 30
+        eventMessage = `Sıra ${contestants[activePlayer]}.`
+        if (shouldRender) route()
+      }
+
+      function passTurn() {
+        if (isGameActionLocked()) return
+        const previousPlayer = contestants[activePlayer]
+        nextTurn()
+        addRoundLogEvent({
+          id: `host-turn-${Date.now()}`,
+          type: 'host_action',
+          playerName: contestants[activePlayer],
+          message: `Host sırayı ${previousPlayer}'den ${contestants[activePlayer]}'e verdi.`,
+        })
+      }
+
+      function revealLetter() {
+        if (isGameActionLocked()) return
+        const remaining = guessableLetters(currentPuzzle().answer).filter((char) => !guessed.includes(char))
+        if (!remaining.length) {
+          eventMessage = 'Tüm harfler açık.'
+          route()
+          return
+        }
+        const revealedLetter = remaining[Math.floor(Math.random() * remaining.length)]
+        guessed.push(revealedLetter)
+        eventMessage = 'Harf açıldı.'
+        playCorrectLetter(`reveal-letter-${revealedLetter}-${Date.now()}`)
+        addRoundLogEvent({
+          id: `host-reveal-${revealedLetter}-${Date.now()}`,
+          type: 'host_action',
+          letter: revealedLetter,
+          message: `Host "${revealedLetter}" harfini açtı.`,
+        })
+        finalizePuzzleIfSolved(contestants[activePlayer])
+        route()
+      }
+
+      function solve() {
+        if (isGameActionLocked()) return
+        const input = document.querySelector('#solve-input')
+        const value = normalizeTurkishText(input?.value || '')
+        const playerName = contestants[activePlayer]
+        if (value === normalizeTurkishText(currentPuzzle().answer)) {
+          clearTimer()
+          guessed = guessableLetters(currentPuzzle().answer)
+          puzzleSolved = true
+          stopWheelSpin()
+          const bankedPoints = scores[activePlayer].round
+          const totalGain = bankedPoints + 500
+          scores[activePlayer].total += scores[activePlayer].round + 500
+          scores.forEach((score) => {
+            score.round = 0
+          })
+          awaitingLetter = false
+          currentSegment = null
+          wheel = 'Hazır'
+          wheelState = 'idle'
+          pendingSpinResult = null
+          displayedSpinResult = null
+          timerRemaining = 30
+          eventMessage = `${contestants[activePlayer]} turu kazandı.`
+          const solveCorrectId = `solve-correct-${Date.now()}`
+          playRoundWin(`round-win-${solveCorrectId}`)
+          addRoundLogEvent({
+            id: solveCorrectId,
+            type: 'solve_correct',
+            playerName,
+            answer: currentPuzzle().answer,
+            pointsChange: totalGain,
+            totalScore: scores[activePlayer].total,
+            message: `${playerName} cevabı doğru bildi. Doğru cevap: "${currentPuzzle().answer}". ${formatPoints(bankedPoints)} tur puanı bankalandı. 500 çözüm bonusu eklendi. ${playerName} toplam ${formatPoints(totalGain)} puan kazandı.`,
+          })
+        } else {
+          const previousRoundScore = scores[activePlayer].round
+          scores[activePlayer].round = Math.max(0, scores[activePlayer].round - 250)
+          const nextRoundScore = scores[activePlayer].round
+          awaitingLetter = false
+          clearTimer()
+          eventMessage = 'Yanlış cevap.'
+          const solveWrongId = `solve-wrong-${Date.now()}`
+          playWrongAnswer(`wrong-answer-${solveWrongId}`)
+          nextTurn(false)
+          addRoundLogEvent({
+            id: solveWrongId,
+            type: 'solve_wrong',
+            playerName,
+            pointsBefore: previousRoundScore,
+            pointsAfter: nextRoundScore,
+            pointsChange: -Math.min(250, previousRoundScore),
+            message: `${playerName}'in cevabı yanlış. ${formatPoints(Math.min(250, previousRoundScore))} tur puanı düşüldü. Sıra ${contestants[activePlayer]}'e geçti.`,
+          })
+        }
+        route()
+      }
+
+      function nextPuzzle() {
+        if (isSpinning()) return
+        prepareNextPuzzle()
+      }
+
+      function prepareNextPuzzle() {
+        stopWheelSpin()
+        puzzleHistory.push(currentPuzzle())
+        puzzleIndex = selectNextPuzzleIndex()
+        guessed = []
+        wrongLetters = []
+        wheel = 'Hazır'
+        currentSegment = null
+        wheelState = 'idle'
+        pendingSpinResult = null
+        displayedSpinResult = null
+        puzzleSolved = false
+        roundLogEvents = []
+        eventMessage = ['proverb', 'anonymous_saying', 'idiom'].includes(currentPuzzle().contentType)
+          ? 'Yeni bir klasik Türk sözü başladı.'
+          : 'Yeni bir doğrulanmış modern söz başladı.'
+        addRoundLogEvent({
+          id: `puzzle-start-${Date.now()}`,
+          type: 'host_action',
+          message: 'Yeni bulmaca başladı.',
+        })
+        startingPlayer = 0
+        activePlayer = 0
+        scores.forEach((score) => {
+          score.round = 0
+        })
+        awaitingLetter = false
+        clearTimer()
+        timerRemaining = 30
+        route()
+      }
+
+      function startTimer(seconds) {
+        clearTimer()
+        timerRemaining = seconds
+        window.turnTimer = window.setInterval(() => {
+          if (isGameActionLocked()) {
+            clearTimer()
+            return
+          }
+          timerRemaining -= 1
+          if (timerRemaining <= 0) {
+            const expiredPlayer = contestants[activePlayer]
+            clearTimer()
+            awaitingLetter = false
+            eventMessage = 'Süre bitti. Sıra değişti.'
+            playTimerExpired(`timer-expired-${expiredPlayer}-${Date.now()}`)
+            nextTurn(false)
+            addRoundLogEvent({
+              id: `timeout-${Date.now()}`,
+              type: 'timeout',
+              playerName: expiredPlayer,
+              message: `${expiredPlayer}'ün süresi doldu. Sıra ${contestants[activePlayer]}'e geçti.`,
+            })
+            route()
+            return
+          }
+          if (timerRemaining <= 5) playTimerTick(`timer-warning-${contestants[activePlayer]}-${timerRemaining}-${Date.now()}`)
+          const timers = document.querySelectorAll('.timer')
+          timers.forEach((timer) => {
+            timer.textContent = String(timerRemaining)
+            timer.className = `timer ${timerClass()}`
+          })
+          document.querySelectorAll('.timer-progress span').forEach((bar) => {
+            bar.style.setProperty('--timer-progress', String(Math.max(0, Math.min(1, timerRemaining / 30))))
+          })
+        }, 1000)
+      }
+
+      function clearTimer() {
+        window.clearInterval(window.turnTimer)
+      }
+
+      function isVowel(letter) {
+        return 'AEIİOÖUÜ'.includes(normalizeTurkish(letter))
+      }
+
+      function countOccurrences(answer, letter) {
+        const target = normalizeTurkish(letter)
+        return [...normalizeTurkish(answer)].filter((char) => isGuessableLetter(char) && char === target).length
+      }
+
+      function stealFromLeader() {
+        const rivals = scores
+          .slice(0, settings.playerCount)
+          .map((score, index) => ({ score, index }))
+          .filter((player) => player.index !== activePlayer)
+          .sort((a, b) => b.score.round - a.score.round)
+        const target = rivals[0]
+        if (!target || target.score.round <= 0) {
+          awaitingLetter = false
+          if (displayedSpinResult) displayedSpinResult.needsRespin = true
+          addRoundLogEvent({
+            id: `steal-empty-${displayedSpinResult?.spinId || Date.now()}`,
+            type: 'steal_points',
+            playerName: contestants[activePlayer],
+            message: `Rakiplerde alınabilecek puan bulunamadı. ${contestants[activePlayer]} tekrar çark çevirecek.`,
+          })
+          return
+        }
+        const amount = Math.min(250, target.score.round)
+        const targetName = contestants[target.index]
+        const activeRoundBefore = scores[activePlayer].round
+        const targetRoundBefore = target.score.round
+        target.score.round -= amount
+        scores[activePlayer].round += amount
+        addRoundLogEvent({
+          id: `steal-${displayedSpinResult?.spinId || Date.now()}`,
+          type: 'steal_points',
+          playerName: contestants[activePlayer],
+          targetPlayerName: targetName,
+          pointsChange: amount,
+          roundScore: scores[activePlayer].round,
+          totalScore: displayedTotalScore(scores[activePlayer]),
+          message: `${contestants[activePlayer]}, ${targetName}'den ${formatPoints(amount)} tur puanı aldı. ${contestants[activePlayer]} tur puanı: ${formatPoints(activeRoundBefore)} -> ${formatPoints(scores[activePlayer].round)}. ${targetName} tur puanı: ${formatPoints(targetRoundBefore)} -> ${formatPoints(target.score.round)}.`,
+        })
+      }
+
+      function route() {
+        if (location.pathname.startsWith('/host')) return renderConfig()
+        return renderGame()
+      }
+
+      function goToConfig() {
+        if (isSpinning()) return
+        location.href = '/host'
+      }
+
+      route()
+    </script>
+  </body>
+</html>
+

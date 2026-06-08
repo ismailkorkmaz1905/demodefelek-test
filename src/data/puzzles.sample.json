@@ -1,0 +1,10 @@
+[
+  { "theme": "KLASİK TÜRK SÖZLERİ", "category": "Atasözü", "answer": "Ayağını yorganına göre uzat", "clue": "Saf Türk atasözü", "difficulty": 1, "enabled": true, "verified": true, "reviewed": true, "source": "klasik" },
+  { "theme": "KLASİK TÜRK SÖZLERİ", "category": "Atasözü", "answer": "Damlaya damlaya göl olur", "clue": "Saf Türk atasözü", "difficulty": 1, "enabled": true, "verified": true, "reviewed": true, "source": "klasik" },
+  { "theme": "KLASİK TÜRK SÖZLERİ", "category": "Atasözü", "answer": "Sakla samanı gelir zamanı", "clue": "Saf Türk atasözü", "difficulty": 1, "enabled": true, "verified": true, "reviewed": true, "source": "klasik" },
+  { "theme": "KLASİK TÜRK SÖZLERİ", "category": "Atasözü", "answer": "Ak akçe kara gün içindir", "clue": "Saf Türk atasözü", "difficulty": 1, "enabled": true, "verified": true, "reviewed": true, "source": "klasik" },
+  { "theme": "KLASİK TÜRK SÖZLERİ", "category": "Deyim", "answer": "Ağzında bakla ıslanmamak", "clue": "Saf Türk deyimi", "difficulty": 2, "enabled": true, "verified": true, "reviewed": true, "source": "klasik" },
+  { "theme": "KLASİK TÜRK SÖZLERİ", "category": "Deyim", "answer": "Etekleri zil çalmak", "clue": "Saf Türk deyimi", "difficulty": 1, "enabled": true, "verified": true, "reviewed": true, "source": "klasik" },
+  { "theme": "KLASİK TÜRK SÖZLERİ", "category": "Deyim", "answer": "İpe un sermek", "clue": "Saf Türk deyimi", "difficulty": 2, "enabled": true, "verified": true, "reviewed": true, "source": "klasik" },
+  { "theme": "KLASİK TÜRK SÖZLERİ", "category": "Deyim", "answer": "Kılı kırk yarmak", "clue": "Saf Türk deyimi", "difficulty": 2, "enabled": true, "verified": true, "reviewed": true, "source": "klasik" }
+]

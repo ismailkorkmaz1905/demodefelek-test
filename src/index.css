@@ -1,0 +1,60 @@
+@import './styles/theme.css';
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700;800&family=Barlow+Condensed:wght@700;800&family=Roboto+Mono:wght@700&display=swap');
+
+:root {
+  color: var(--text);
+  font-family: var(--font-body);
+  font-synthesis: none;
+  line-height: 1.45;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background:
+    radial-gradient(circle at 18% 7%, rgb(244 247 251 / 16%), transparent 28rem),
+    radial-gradient(circle at 86% 10%, rgb(34 184 207 / 18%), transparent 26rem),
+    linear-gradient(155deg, var(--stage-top) 0%, var(--background) 46%, var(--stage-bottom) 100%);
+  margin: 0;
+  min-width: 320px;
+}
+
+#root {
+  min-height: 100svh;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--text);
+  font-family: var(--font-heading);
+  font-weight: 900;
+  letter-spacing: 0;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}

@@ -1,0 +1,46 @@
+export const brand = {
+  appName: 'ÇARKIFELEK',
+  subtitle: 'DemoDeTV sunar',
+  primarySlogan: 'Çevir cavo!',
+  secondarySlogans: [
+    'Bil cavo, kazan cavo.',
+    'Çark döner, cavo güler.',
+    'Dört cavo, tek şampiyon.',
+    'Cevabı biliyorsan yapıştır cavo.',
+  ],
+  logos: {
+    demoDeTv: { svg: '/brand/demodetv-logo.svg', png: '/brand/demodetv-logo.png' },
+    carkavo: { svg: '/brand/carkavo-logo.svg', png: '/brand/carkavo-logo.png' },
+  },
+  colors: {
+    background: '#0E7FA1',
+    secondaryBackground: '#0B6F92',
+    panel: '#D8E3E8',
+    raisedPanel: '#C9D7DD',
+    cyan: '#22B8CF',
+    darkCyan: '#167C9A',
+    blue: '#0F6E8E',
+    lightBlue: '#2C9AB3',
+    primary: '#1686A6',
+    secondary: '#2C9AB3',
+    accent: '#22C55E',
+    text: '#1F4F5A',
+    mutedText: '#3D6F79',
+    danger: '#EF4444',
+    success: '#22C55E',
+    warning: '#F4C430',
+  },
+  contestantColors: ['#22B8CF', '#F4C430', '#F97316', '#4FC3F7'],
+  fonts: {
+    display: 'Teko, Bebas Neue, Arial Narrow, Inter, system-ui, sans-serif',
+    heading: 'Teko, Montserrat, Inter, system-ui, sans-serif',
+    body: 'Inter, Manrope, system-ui, sans-serif',
+  },
+  radius: '14px',
+  animationIntensity: 'normal',
+  showLogo: true,
+  slangMode: true,
+  cavoMessageFrequency: 'normal',
+} as const
+
+export type CavoFrequency = 'low' | 'normal' | 'high'

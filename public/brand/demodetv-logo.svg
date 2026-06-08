@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="120" viewBox="0 0 360 120" role="img" aria-label="DemoDeTV">
+  <rect width="360" height="120" rx="8" fill="#111620"/>
+  <text x="30" y="73" fill="#F7F7F7" font-family="Inter, Arial, sans-serif" font-size="44" font-weight="900">DemoDeTV</text>
+  <circle cx="308" cy="58" r="22" fill="#F4C430"/>
+</svg>

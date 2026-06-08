@@ -1,0 +1,23 @@
+# ÇARKAVO Yayın Kontrol Listesi
+
+- [ ] Supabase project active
+- [ ] Cloudflare deployment online
+- [ ] Host can create room
+- [ ] Four test contestants can join
+- [ ] Stage page loads
+- [ ] OBS audio works
+- [ ] DemoDeTV logo loads
+- [ ] ÇARKAVO logo loads
+- [ ] Cavo messages reviewed
+- [ ] Slang mode setting confirmed
+- [ ] Puzzle database reviewed
+- [ ] Football puzzles reviewed
+- [ ] General Culture puzzles reviewed
+- [ ] Final puzzles reviewed
+- [ ] Host emergency controls tested
+- [ ] Reconnection tested
+- [ ] All devices charged
+- [ ] Discord call tested
+- [ ] Room code not shared publicly too early
+- [ ] Demo round completed
+- [ ] Backup puzzle JSON downloaded
