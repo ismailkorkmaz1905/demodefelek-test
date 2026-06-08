@@ -48,6 +48,49 @@ https://USERNAME.github.io/REPOSITORY_NAME/
 
 Bu yaklaşımda build gerekmez. GitHub Pages `docs/index.html` ve `docs/styles.css` dosyalarını doğrudan servis eder.
 
+## Ortamlar
+
+Production:
+
+```text
+URL: https://ismailkorkmaz1905.github.io/demodefelek/
+remote: origin
+branch: main
+publish folder: /docs
+```
+
+Test:
+
+```text
+URL: https://ismailkorkmaz1905.github.io/demodefelek-test/
+remote: test
+branch: main
+publish folder: /docs
+```
+
+## Geliştirme ve Deploy Akışı
+
+1. Local değişiklik yap.
+2. Local docs server ile test et.
+3. Commit oluştur.
+4. Önce test remote'a pushla.
+5. Test URL'de kullanıcı kontrol eder.
+6. Kullanıcı açıkça "Production'a pushla" demeden origin'e push yapılmaz.
+
+Test deploy:
+
+```bash
+git push test main:main
+```
+
+Production deploy:
+
+```bash
+git push origin main
+```
+
+Production koruma kuralı: test URL onayı alınmadan production değişmeyecek. Force push kullanılmayacak.
+
 ## Proje Dokümantasyonu
 
 Yayın ve proje içi dokümantasyon dosyaları `project-docs/` altında tutulur.
