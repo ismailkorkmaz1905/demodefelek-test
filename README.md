@@ -101,6 +101,30 @@ project-docs/BROADCAST_CHECKLIST.md
 
 `docs/` klasörü yalnızca GitHub Pages public site çıktısı için kullanılır.
 
+## Özel Soru Havuzu
+
+Host, Kurulum ekranından kendi sorularını ekleyebilir veya CSV dosyasıyla toplu soru yükleyebilir.
+
+Desteklenen CSV kolonları:
+
+```text
+answer,category,title,speaker,difficulty
+cevap,kategori,başlık,ipucu,konuşmacı,zorluk
+```
+
+Excel dosyaları doğrudan parse edilmez. Excel dosyasını CSV olarak kaydedip yükleyin.
+
+Özel sorular tarayıcı localStorage içinde saklanır:
+
+```text
+demodefelek.customPuzzles.v1
+demodefelek.customPuzzleSettings.v1
+```
+
+Custom sorularda `verified: true`, sorunun host tarafından oynanabilir olarak onaylandığı anlamına gelir. Dış kaynak doğrulaması anlamına gelmez.
+
+Kurulum ekranında hazır havuz ve özel havuz birlikte veya ayrı oynatılabilir. Production'a push yapılmadan önce değişiklikler test ortamında kontrol edilmelidir.
+
 ## Notlar
 
 - Oyun host kontrollüdür.
