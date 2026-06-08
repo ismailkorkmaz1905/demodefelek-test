@@ -1628,6 +1628,126 @@
         `
       }
 
+      function getPuzzleSummary(puzzleList) {
+        const total = puzzleList.length
+        const active = puzzleList.filter((puzzle) => puzzle.enabled !== false && puzzle.verified !== false && puzzle.reviewed !== false).length
+        const verified = puzzleList.filter((puzzle) => puzzle.verified !== false).length
+        const byCategory = puzzleList.reduce((summary, puzzle) => {
+          const category = String(puzzle.category || 'Diğer').trim() || 'Diğer'
+          summary[category] = (summary[category] || 0) + 1
+          return summary
+        }, {})
+
+        return {
+          total,
+          active,
+          disabled: total - active,
+          verified,
+          unverified: total - verified,
+          byCategory,
+        }
+      }
+
+      function renderContentSummary() {
+        const summary = getPuzzleSummary(managedPuzzles)
+        const categories = Object.entries(summary.byCategory)
+          .sort(([categoryA], [categoryB]) => categoryA.localeCompare(categoryB, 'tr-TR'))
+
+        return `
+          <details class="setup-details" open>
+            <summary>İçerik Özeti</summary>
+            <p>Bu listede oyunda kullanılabilecek cevaplar bulunur. Aktif, doğrulanmış ve onaylanmış cevaplar rastgele bulmaca havuzuna girer. Pasif veya doğrulanmamış cevaplar Kurulum ekranında görünür ama oyunda seçilmez.</p>
+            <div class="setup-summary-grid">
+              <span><strong>${summary.total}</strong>Toplam cevap</span>
+              <span><strong>${summary.active}</strong>Aktif cevap</span>
+              <span><strong>${summary.disabled}</strong>Pasif cevap</span>
+              <span><strong>${summary.verified}</strong>Doğrulanmış</span>
+              <span><strong>${summary.unverified}</strong>Doğrulanmamış</span>
+            </div>
+            <h3>Kategoriler</h3>
+            <div class="category-summary-list">
+              ${categories.map(([category, count]) => `
+                <span><b>${escapeHtml(category)}</b><strong>${count}</strong></span>
+              `).join('')}
+            </div>
+          </details>
+        `
+      }
+
+      function renderGameRulesInfo() {
+        return `
+          <details class="setup-details">
+            <summary>Oyun Kuralları</summary>
+            <ul class="setup-rule-list">
+              <li>Demodefelek host kontrollü bir kelime-çark oyunudur.</li>
+              <li>Yarışmacılar uygulamaya bağlanmaz; host bütün işlemleri aktif yarışmacı adına yapar.</li>
+              <li>Her turda bir cevap bulunur ve oyuncular sırayla çark çevirir.</li>
+              <li>Çark sonucu puan veya 2X ise host harf seçer.</li>
+              <li>Doğru sessiz harfte oyuncu tur puanı kazanır ve sıra kendisinde kalır.</li>
+              <li>Yanlış harfte, yanlış sesli harfte veya süre dolduğunda sıra sonraki oyuncuya geçer.</li>
+              <li>Sesli harf 200 tur puanı karşılığında alınabilir.</li>
+              <li>Tam cevap doğru bilindiğinde veya son harf açıldığında tur tamamlanır.</li>
+              <li>Yeni bulmaca başladığında tur puanları sıfırlanır ve başlangıç oyuncusu aktif yarışmacılar arasında sırayla kayar.</li>
+            </ul>
+            <h3>Tur Tamamlanınca</h3>
+            <ul class="setup-rule-list">
+              <li>Timer durur.</li>
+              <li>Eski bulmaca üzerinde yeni harf seçilemez.</li>
+              <li>Eski bulmaca üzerinde yeni spin başlatılamaz.</li>
+              <li>Yeni Bulmaca ile yeni puzzle hazırlanır.</li>
+              <li>Yeni puzzle hazırlandıktan sonra host tekrar Çarkı Çevir'e basar.</li>
+            </ul>
+          </details>
+        `
+      }
+
+      function renderScoringRulesInfo() {
+        return `
+          <details class="setup-details">
+            <summary>Puanlama Kuralları</summary>
+            <ul class="setup-rule-list">
+              <li>Her oyuncunun Tur puanı ve Toplam puanı vardır.</li>
+              <li>Tur puanı mevcut turda kazanılan geçici puandır.</li>
+              <li>Toplam puan bankalanmış puan ile mevcut tur puanının toplamı olarak gösterilir.</li>
+              <li>Sessiz harfte puan: çark değeri x bulunan harf sayısı.</li>
+              <li>Örnek: 400 x 3 = 1.200 tur puanı.</li>
+              <li>2X sonucunda bir sonraki doğru sessiz harf puanı iki kat olur.</li>
+              <li>Örnek: 300 x 3 x 2 = 1.800 tur puanı.</li>
+              <li>Sesli harf 200 tur puanı karşılığında alınır.</li>
+              <li>Serbest Harf ücretsiz harf hakkı verir, puan kazandırmaz.</li>
+              <li>Yanlış tam cevapta oyuncunun tur puanından en fazla 250 düşer.</li>
+              <li>Puan 0 altına inmez.</li>
+              <li>İflas yalnızca mevcut tur puanını sıfırlar; bankalanmış puan korunur.</li>
+              <li>Tur doğru cevapla bittiğinde kazanan oyuncunun tur puanı bankalanır ve 500 çözüm bonusu eklenir.</li>
+            </ul>
+          </details>
+        `
+      }
+
+      function renderWheelSegmentsInfo() {
+        const pointValues = [...new Set(wheelSegments.filter((segment) => segment.kind === 'points').map((segment) => segment.value))]
+          .sort((a, b) => a - b)
+          .map(formatPoints)
+          .join(', ')
+
+        return `
+          <details class="setup-details">
+            <summary>Çark Segmentleri</summary>
+            <h3>Puan Segmentleri</h3>
+            <p>${pointValues}</p>
+            <ul class="setup-rule-list">
+              <li>Sessiz harf doğruysa çark değeri bulunan harf sayısıyla çarpılır.</li>
+              <li>İFLAS: Aktif oyuncunun mevcut tur puanı sıfırlanır, bankalanmış puan korunur ve sıra sonraki oyuncuya geçer.</li>
+              <li>PAS: Puan değişmez ve sıra sonraki oyuncuya geçer.</li>
+              <li>2X: Bir sonraki doğru sessiz harf puanı iki kat olur.</li>
+              <li>SERBEST HARF: Oyuncuya ücretsiz harf hakkı verir ve puan kazandırmaz.</li>
+              <li>TEKRAR ÇEVİR: Sıra değişmeden aktif oyuncu tekrar çark çevirir.</li>
+              <li>RAKİPTEN 250: Aktif oyuncu hariç en yüksek tur puanlı rakipten en fazla 250 puan alınır. Rakiplerde tur puanı yoksa aktif oyuncu tekrar çevirir.</li>
+            </ul>
+          </details>
+        `
+      }
+
       function renderManagedPuzzleEditor() {
         return `
           <section class="panel">
@@ -1783,6 +1903,12 @@
                 </label>
               </div>
               <button class="primary" onclick="applyConfig()">Oyunu Aç</button>
+            </section>
+            <section class="panel">
+              ${renderContentSummary()}
+              ${renderGameRulesInfo()}
+              ${renderScoringRulesInfo()}
+              ${renderWheelSegmentsInfo()}
             </section>
             ${renderManagedPuzzleEditor()}
             <section class="panel">

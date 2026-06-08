@@ -970,6 +970,92 @@
         padding: 6px 10px;
       }
 
+      .setup-details {
+        background: rgb(244 247 251 / 42%);
+        border: var(--panel-border);
+        border-radius: var(--radius);
+        margin: 0 0 10px;
+        padding: 10px 12px;
+      }
+
+      .setup-details:last-child {
+        margin-bottom: 0;
+      }
+
+      .setup-details summary {
+        color: var(--text);
+        cursor: pointer;
+        font-family: var(--font-heading);
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .setup-details p,
+      .setup-details h3 {
+        margin: 10px 0 0;
+      }
+
+      .setup-summary-grid {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        margin-top: 12px;
+      }
+
+      .setup-summary-grid span,
+      .category-summary-list span {
+        background: rgb(255 255 255 / 62%);
+        border: var(--panel-border);
+        border-radius: 10px;
+        color: var(--muted);
+        display: grid;
+        font-size: 12px;
+        font-weight: 850;
+        gap: 3px;
+        padding: 8px 10px;
+      }
+
+      .setup-summary-grid strong,
+      .category-summary-list strong {
+        color: var(--text);
+        font-family: var(--font-heading);
+        font-size: 20px;
+        line-height: 1;
+      }
+
+      .category-summary-list {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin-top: 10px;
+      }
+
+      .category-summary-list span {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .category-summary-list b {
+        color: var(--muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .setup-rule-list {
+        display: grid;
+        gap: 7px;
+        margin: 10px 0 0;
+        padding-left: 18px;
+      }
+
+      .setup-rule-list li {
+        color: var(--text);
+        font-size: 14px;
+        line-height: 1.35;
+      }
+
       .stage {
         min-height: 100vh;
       }
@@ -1324,10 +1410,20 @@
         body {
           overflow: auto;
         }
+
+        .setup-summary-grid,
+        .category-summary-list {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
 
       @media (max-width: 640px) {
         .contestants {
+          grid-template-columns: 1fr;
+        }
+
+        .setup-summary-grid,
+        .category-summary-list {
           grid-template-columns: 1fr;
         }
       }
