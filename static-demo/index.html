@@ -967,7 +967,7 @@
             <div class="board" style="--tile-size:${tileSizeForAnswer(currentPuzzle().answer)}px">${board()}</div>
             ${host ? `
               <div class="solve-row">
-                <input id="solve-input" placeholder="Cevap tahmini" ${locked ? 'disabled' : ''} />
+                <input id="solve-input" placeholder="Cevap tahmini" onkeydown="handleSolveInputKey(event)" ${locked ? 'disabled' : ''} />
                 <button onclick="solve()" ${locked ? 'disabled' : ''}>Tahmin Et</button>
               </div>
               <p class="eyebrow">Kullanılan Harfler</p>
@@ -2324,9 +2324,18 @@
         route()
       }
 
+      function handleSolveInputKey(event) {
+        if (event.key !== 'Enter') return
+        event.preventDefault()
+        if (event.currentTarget.id !== 'solve-input') return
+        if (!event.currentTarget.value.trim()) return
+        solve()
+      }
+
       function solve() {
         if (isGameActionLocked()) return
         const input = document.querySelector('#solve-input')
+        if (!input?.value.trim()) return
         const value = normalizeTurkishText(input?.value || '')
         const playerName = contestants[activePlayer]
         if (value === normalizeTurkishText(currentPuzzle().answer)) {
