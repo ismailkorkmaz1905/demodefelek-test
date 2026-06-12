@@ -20,12 +20,6 @@ GitHub Pages çıktısı:
 docs/
 ```
 
-Legacy React/Vite/Supabase denemeleri:
-
-```text
-_legacy/
-```
-
 Production deploy için build gerekmez. GitHub Pages `/docs` klasörünü servis eder.
 
 ## Local Çalıştırma
@@ -153,12 +147,6 @@ Kurulum ekranındaki Bulmaca Cevapları bölümünde hazır cevaplar ve host tar
 - Build gerekmez.
 - Static hosting ile çalışır.
 - OBS Browser Source içinde URL olarak açılabilir.
-
-## Legacy Tooling
-
-`npm run test` ve `npm run build` eski React/Vite tooling'e aitti. Static production deploy için zorunlu değildir.
-
-Eski React/Vite/Supabase denemeleri `_legacy/` altında saklanır. Bu klasör production runtime tarafından kullanılmaz.
 
 ## OBS Browser Source
 
