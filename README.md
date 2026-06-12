@@ -4,16 +4,33 @@ Demodefelek, host kontrollü Türkçe kelime-çark oyunudur.
 
 Canlı yayında host tek ekranı kontrol eder. Yarışmacılar uygulamaya bağlanmaz. Yayıncı, OBS üzerinden static sayfayı ve gerekiyorsa harici kamera kaynaklarını yayına alır.
 
-## Çalışan Static Demo
+## Proje Yapısı
 
-Kaynak demo:
+Demodefelek static-only production yapısı kullanır.
+
+Aktif kaynak:
 
 ```text
-static-demo/index.html
-static-demo/styles.css
+static-demo/
 ```
 
-Local çalıştırma:
+GitHub Pages çıktısı:
+
+```text
+docs/
+```
+
+Legacy React/Vite/Supabase denemeleri:
+
+```text
+_legacy/
+```
+
+Production deploy için build gerekmez. GitHub Pages `/docs` klasörünü servis eder.
+
+## Local Çalıştırma
+
+Static demo:
 
 ```bat
 cd static-demo
@@ -26,56 +43,49 @@ Local URL:
 http://localhost:5173
 ```
 
-## GitHub Pages
+Production preview:
 
-GitHub Pages publish folder:
+```bat
+cd docs
+python -m http.server 5174
+```
+
+Preview URL:
 
 ```text
-docs/
+http://localhost:5174
 ```
+
+## GitHub Pages
 
 GitHub Pages ayarı:
 
 ```text
-Settings > Pages > Deploy from a branch > main > /docs
+Repository > Settings > Pages
+Source: Deploy from a branch
+Branch: main
+Folder: /docs
 ```
 
-Yayın URL örneği:
+Production URL:
 
 ```text
-https://USERNAME.github.io/REPOSITORY_NAME/
+https://ismailkorkmaz1905.github.io/demodefelek/
 ```
 
-Bu yaklaşımda build gerekmez. GitHub Pages `docs/index.html` ve `docs/styles.css` dosyalarını doğrudan servis eder.
-
-## Ortamlar
-
-Production:
+Test URL:
 
 ```text
-URL: https://ismailkorkmaz1905.github.io/demodefelek/
-remote: origin
-branch: main
-publish folder: /docs
+https://ismailkorkmaz1905.github.io/demodefelek-test/
 ```
 
-Test:
+## Deploy Akışı
 
-```text
-URL: https://ismailkorkmaz1905.github.io/demodefelek-test/
-remote: test
-branch: main
-publish folder: /docs
-```
-
-## Geliştirme ve Deploy Akışı
-
-1. Local değişiklik yap.
-2. Local docs server ile test et.
-3. Commit oluştur.
+1. Değişiklikleri `static-demo/` içinde yap.
+2. `docs/` çıktısını `static-demo/` ile senkron tut.
+3. Local `docs` preview ile kontrol et.
 4. Önce test remote'a pushla.
-5. Test URL'de kullanıcı kontrol eder.
-6. Kullanıcı açıkça "Production'a pushla" demeden origin'e push yapılmaz.
+5. Kullanıcı açıkça "Production'a pushla" demeden production remote'a push yapma.
 
 Test deploy:
 
@@ -89,7 +99,16 @@ Production deploy:
 git push origin main
 ```
 
-Production koruma kuralı: test URL onayı alınmadan production değişmeyecek. Force push kullanılmayacak.
+## Aktif Dosyalar
+
+```text
+static-demo/index.html
+static-demo/styles.css
+docs/index.html
+docs/styles.css
+README.md
+.gitignore
+```
 
 ## Proje Dokümantasyonu
 
@@ -112,10 +131,6 @@ answer,category,title,speaker,difficulty
 cevap,kategori,başlık,ipucu,konuşmacı,zorluk
 ```
 
-CSV import mevcut özel soru havuzunu tamamen değiştirir. Eski özel soruların kaybolmaması için önce export alın.
-
-Excel dosyaları doğrudan parse edilmez. Excel dosyasını CSV olarak kaydedip yükleyin.
-
 Özel sorular ve havuz ayarları cihaz bazlı olarak tarayıcı localStorage içinde saklanır:
 
 ```text
@@ -124,28 +139,12 @@ demodefelek.customPuzzleSettings.v1
 demodefelek.puzzleList.v1
 ```
 
-Custom sorularda `verified: true`, sorunun host tarafından oynanabilir olarak onaylandığı anlamına gelir. Dış kaynak doğrulaması anlamına gelmez.
-
-Kurulum ekranındaki Bulmaca Cevapları bölümünde hazır cevaplar ve host tarafından eklenen cevaplar düzenlenebilir. Kaydetme localStorage içinde `version`, `updatedAt` ve `puzzles` alanlarıyla saklanır. Varsayılan Cevaplara Dön butonu bu listeyi temizleyip hazır puzzle listesine geri döner.
-
-Kurulum ekranındaki özel soru listesinde cevap, kategori, ipucu, kaynak, zorluk ve aktiflik bilgisi inline düzenlenebilir. Kaydet butonu validation ve duplicate kontrolünden sonra localStorage kaydını günceller.
-
-Özel soru havuzu JSON olarak dışa aktarılabilir:
-
-```text
-demodefelek-custom-puzzles.json
-```
-
-Kurulum ekranında hazır havuz ve özel havuz birlikte veya ayrı oynatılabilir. Production'a push yapılmadan önce değişiklikler test ortamında kontrol edilmelidir.
+Kurulum ekranındaki Bulmaca Cevapları bölümünde hazır cevaplar ve host tarafından eklenen cevaplar düzenlenebilir. Kaydetme localStorage içinde `version`, `updatedAt` ve `puzzles` alanlarıyla saklanır.
 
 ## Notlar
 
 - Oyun host kontrollüdür.
 - Yarışmacı sayısı 1-4 arasındadır.
-- En fazla 4 kişi desteklenir.
-- 1 kişi modunda sıra aynı oyuncuda kalır.
-- 2-4 kişi modunda sıra aktif oyuncular arasında döner.
-- Yeni Bulmaca başlatıldığında başlangıç oyuncusu aktif oyuncular arasında sırayla kayar.
 - Yarışmacılar uygulamaya bağlanmaz.
 - Backend gerekmez.
 - Supabase gerekmez.
@@ -155,6 +154,12 @@ Kurulum ekranında hazır havuz ve özel havuz birlikte veya ayrı oynatılabili
 - Static hosting ile çalışır.
 - OBS Browser Source içinde URL olarak açılabilir.
 
+## Legacy Tooling
+
+`npm run test` ve `npm run build` eski React/Vite tooling'e aitti. Static production deploy için zorunlu değildir.
+
+Eski React/Vite/Supabase denemeleri `_legacy/` altında saklanır. Bu klasör production runtime tarafından kullanılmaz.
+
 ## OBS Browser Source
 
 Local yayın testi:
@@ -163,10 +168,10 @@ Local yayın testi:
 http://localhost:5173
 ```
 
-GitHub Pages yayın örneği:
+GitHub Pages yayın:
 
 ```text
-https://USERNAME.github.io/REPOSITORY_NAME/
+https://ismailkorkmaz1905.github.io/demodefelek/
 ```
 
 Önerilen OBS ayarları:
@@ -178,40 +183,3 @@ https://USERNAME.github.io/REPOSITORY_NAME/
 - Refresh browser when scene becomes active: kapalı
 
 Yarışmacı kamera görüntüleri uygulamanın parçası değildir. Yayıncı Discord veya başka kamera kaynaklarını OBS içinde ayrı source olarak ekler.
-
-## GitHub Hazırlık Komutları
-
-Bu komutlar otomatik çalıştırılmadı:
-
-```bash
-git init
-git add .
-git commit -m "Prepare Demodefelek static demo for GitHub Pages"
-git branch -M main
-git remote add origin <REPO_URL>
-git push -u origin main
-```
-
-## Test Komutları
-
-```bash
-npm run lint
-npm run test
-npm run build
-```
-
-Not: `npm run test` ve `npm run build` Vite/Vitest config yüklerken Windows `spawn EPERM` hatasına takılabilir. Bu static sayfanın bozuk olduğu anlamına gelmez. GitHub Pages `/docs` üzerinden HTML/CSS servis ettiği için Vite build aşamasına ihtiyaç yoktur.
-
-## Legacy / Current Static Demo Tarafından Kullanılmayan Alanlar
-
-Aşağıdaki alanlar mevcut static demo için zorunlu değildir, ancak bu aşamada silinmedi:
-
-- `src/`
-- `supabase/`
-- `package.json`
-- `package-lock.json`
-- `vite.config.ts`
-- `vitest.config.ts`
-- `static_server.py`
-
-React/Vite, Supabase, oda kodu, join screen, stage route, multiplayer, RPC, RLS, Cloudflare Worker ve eski puzzle seed bilgileri mevcut static demo tarafından kullanılmayan legacy alanlar olarak değerlendirilmelidir.
